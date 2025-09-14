@@ -376,7 +376,7 @@ jobs:
               "version": "${{ env.VERSION }}",
               "description": "Frontend build artifacts"
             }'
-          
+
           # Then upload the file
           curl -X PUT \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
