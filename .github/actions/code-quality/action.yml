@@ -1,0 +1,20 @@
+name: 'Run Code Quality Check'
+description: 'Sets up Node with Yarn and runs a specified yarn command for code quality.'
+
+inputs:
+  command:
+    description: 'The yarn command to run (e.g., lint, format, typecheck)'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node with Yarn
+      uses: ./.github/actions/setup-node
+    - name: Run Code Quality Check
+      shell: bash
+      env:
+        COMMAND: ${{ inputs.command }}
+      run: |
+        echo "Running yarn $COMMAND..."
+        yarn $COMMAND

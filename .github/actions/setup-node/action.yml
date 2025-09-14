@@ -1,0 +1,35 @@
+name: 'Setup Node with Yarn'
+description: 'Sets up Node.js 22, enables Corepack, prepares Yarn v4, and configures caching for Yarn dependencies.'
+
+inputs:
+  node-version:
+    description: 'Node.js version'
+    required: false
+    default: '22'
+  yarn-version:
+    description: 'Yarn version'
+    required: false
+    default: '4'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node
+      uses: actions/setup-node@v5
+      with:
+        node-version: ${{ inputs.node-version }}
+    - name: Enable Corepack and Prepare Yarn
+      shell: bash
+      env:
+        YARN_VERSION: ${{ inputs.yarn-version }}
+      run: |
+        corepack enable
+        corepack prepare yarn@$YARN_VERSION --activate
+    - name: Cache Yarn Dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          .yarn/
+          .pnp.cjs
+          .pnp.loader.mjs
+        key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock', '.yarnrc.yml') }}
