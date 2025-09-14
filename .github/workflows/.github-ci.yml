@@ -161,6 +161,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Node with Yarn
         uses: ./.github/actions/setup-node # Calls the composite action for Node + Yarn + cache
+        with:
+          yarn-version: '4.9.2'
       - name: Install dependencies
         run: |
           set -x 
@@ -214,8 +216,7 @@ jobs:
       - name: Setup Node with Yarn
         uses: ./.github/actions/setup-node
         with:
-          gitea_username: ${{ vars.USER_NAME_GITEA }}
-          gitea_token: ${{ secrets.USER_TOKEN_GITEA }}
+          yarn-version: '4.9.2'
       - name: Run Yarn Audit
         run: |
           echo "Running Yarn Audit for critical issues only..."
@@ -281,6 +282,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Node with Yarn
         uses: ./.github/actions/setup-node
+        with:
+          yarn-version: '4.9.2'
       - name: Install jest-junit
         shell: bash
         run: yarn add --dev jest-junit
@@ -310,6 +313,8 @@ jobs:
       
       - name: Setup Node with Yarn
         uses: ./.github/actions/setup-node
+        with:
+          yarn-version: '4.9.2'
       
       - name: Install dependencies
         run: |
