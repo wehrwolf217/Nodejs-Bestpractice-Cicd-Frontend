@@ -320,17 +320,12 @@ jobs:
         run: |
           yarn build
 
-      - name: Extract version
-        run: |
-          VERSION=${{ needs.extract_version.outputs.version }}
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Create archive
+      - name: Prepare to archive
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           mkdir -p artifacts
           cp -r out/* artifacts/ || cp -r build/* artifacts/ || cp -r dist/* artifacts/
           cd artifacts
-          tar -czf frontend-${{ env.VERSION }}.tar.gz *
 
       - name: Scan build artifacts with Trivy
         uses: aquasecurity/trivy-action@master
@@ -351,14 +346,33 @@ jobs:
           path: trivy-fs-results.sarif
           retention-days: 2
 
-      - name: Upload to GitHub Packages
+      - name: Extract version
+        run: |
+          VERSION=${{ needs.extract_version.outputs.version }}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Create archive
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          curl -X PUT \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @artifacts/frontend-${{ env.VERSION }}.tar.gz \
-            "https://uploads.github.com/repos/${{ github.repository }}/packages/generic/frontend/${{ env.VERSION }}/frontend-${{ env.VERSION }}.tar.gz"
+          tar -czf frontend-${{ env.VERSION }}.tar.gz *
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend-${{ env.VERSION }}.tar.gz
+          retention-days: 7
+
+      - name: Publish to GitHub Packages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          gh package upload frontend-${{ env.VERSION }}.tar.gz \
+            --repo ${{ github.repository }} \
+            --package-type generic \
+            --package-name frontend \
+            --version ${{ env.VERSION }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   tag_release:
     runs-on: ubuntu-latest
