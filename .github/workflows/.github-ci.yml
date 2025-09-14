@@ -13,7 +13,7 @@ permissions:
 
 env:
   REGISTRY: ${{ vars.REGISTRY || 'ghcr.io' }}
-  IMAGE_NAME: 'ghcr.io/${{ github.repository }}'
+  IMAGE_NAME: "ghcr.io/${{ github.repository }}"
 
 jobs:
   validate_branch_name:
@@ -162,7 +162,7 @@ jobs:
       - name: Setup Node with Yarn
         uses: ./.github/actions/setup-node # Calls the composite action for Node + Yarn + cache
         with:
-          yarn-version: '4.9.2'
+          yarn-version: "4.9.2"
       - name: Install dependencies
         run: |
           set -x 
@@ -216,7 +216,7 @@ jobs:
       - name: Setup Node with Yarn
         uses: ./.github/actions/setup-node
         with:
-          yarn-version: '4.9.2'
+          yarn-version: "4.9.2"
       - name: Run Yarn Audit
         run: |
           echo "Running Yarn Audit for critical issues only..."
@@ -283,7 +283,7 @@ jobs:
       - name: Setup Node with Yarn
         uses: ./.github/actions/setup-node
         with:
-          yarn-version: '4.9.2'
+          yarn-version: "4.9.2"
       - name: Install jest-junit
         shell: bash
         run: yarn add --dev jest-junit
@@ -310,16 +310,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Setup Node with Yarn
         uses: ./.github/actions/setup-node
         with:
-          yarn-version: '4.9.2'
-      
+          yarn-version: "4.9.2"
+
       - name: Install dependencies
         run: |
           yarn install --immutable
-      
+
       - name: Build frontend
         run: |
           yarn build
@@ -335,18 +335,18 @@ jobs:
           cp -r out/* artifacts/ || cp -r build/* artifacts/ || cp -r dist/* artifacts/
           cd artifacts
           tar -czf frontend-${{ env.VERSION }}.tar.gz *
-      
+
       - name: Scan build artifacts with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          scan-ref: 'artifacts/'
-          format: 'sarif'
-          output: 'trivy-fs-results.sarif'
-          severity: 'HIGH,CRITICAL'
+          scan-type: "fs"
+          scan-ref: "artifacts/"
+          format: "sarif"
+          output: "trivy-fs-results.sarif"
+          severity: "HIGH,CRITICAL"
           exit-code: 1
-          trivy-args: '--pkg-types npm,yarn --include-dev-deps --scanners vuln,secret,misconfig'
-      
+          trivy-args: "--pkg-types npm,yarn --include-dev-deps --scanners vuln,secret,misconfig"
+
       - name: Upload Trivy FS report
         uses: actions/upload-artifact@v4
         if: always()
