@@ -373,7 +373,7 @@ jobs:
           tag_name: v${{ env.VERSION }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
+
   # tag_release:
   #   runs-on: ubuntu-latest
   #   needs: [build_and_upload_frontend, extract_version]
