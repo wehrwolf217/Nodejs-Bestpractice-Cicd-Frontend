@@ -1,18 +1,18 @@
-name: 'Setup Node with Yarn'
-description: 'Sets up Node.js 22, enables Corepack, prepares Yarn v4, and configures caching for Yarn dependencies.'
+name: "Setup Node with Yarn"
+description: "Sets up Node.js 22, enables Corepack, prepares Yarn v4, and configures caching for Yarn dependencies."
 
 inputs:
   node-version:
-    description: 'Node.js version'
+    description: "Node.js version"
     required: false
-    default: '22'
+    default: "22"
   yarn-version:
-    description: 'Yarn version'
+    description: "Yarn version"
     required: false
-    default: '4'
+    default: "4"
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Setup Node
       uses: actions/setup-node@v5
