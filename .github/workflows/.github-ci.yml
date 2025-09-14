@@ -11,10 +11,6 @@ permissions:
   contents: write # For pushing tags
   packages: write # For registry, if needed
 
-env:
-  REGISTRY: ${{ vars.REGISTRY || 'ghcr.io' }}
-  IMAGE_NAME: "ghcr.io/${{ github.repository }}"
-
 jobs:
   validate_branch_name:
     runs-on: ubuntu-latest
