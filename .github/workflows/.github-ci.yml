@@ -300,9 +300,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [unit_test, extract_version]
     if: (github.event_name == 'pull_request') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    permissions:
-      contents: read
-      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
