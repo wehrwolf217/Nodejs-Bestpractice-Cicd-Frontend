@@ -358,7 +358,7 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "Content-Type: application/octet-stream" \
             --data-binary @artifacts/frontend-${{ env.VERSION }}.tar.gz \
-            "https://github.com/${{ github.repository }}/packages/generic/frontend/${{ env.VERSION }}/frontend-${{ env.VERSION }}.tar.gz"
+            "https://uploads.github.com/repos/${{ github.repository }}/packages/generic/frontend/${{ env.VERSION }}/frontend-${{ env.VERSION }}.tar.gz"
 
   tag_release:
     runs-on: ubuntu-latest
