@@ -354,25 +354,35 @@ jobs:
       - name: Create archive
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
+          cd artifacts
           tar -czf frontend-${{ env.VERSION }}.tar.gz *
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
-          path: frontend-${{ env.VERSION }}.tar.gz
+          path: artifacts/frontend-${{ env.VERSION }}.tar.gz
           retention-days: 7
 
       - name: Publish to GitHub Packages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          gh package upload frontend-${{ env.VERSION }}.tar.gz \
-            --repo ${{ github.repository }} \
-            --package-type generic \
-            --package-name frontend \
-            --version ${{ env.VERSION }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            https://api.github.com/repos/${{ github.repository }}/packages/generic \
+            -d '{
+              "name": "frontend",
+              "version": "${{ env.VERSION }}",
+              "description": "Frontend build artifacts"
+            }'
+          
+          # Then upload the file
+          curl -X PUT \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @artifacts/frontend-${{ env.VERSION }}.tar.gz \
+            "https://uploads.github.com/repos/${{ github.repository }}/packages/generic/frontend/${{ env.VERSION }}/frontend-${{ env.VERSION }}.tar.gz"
 
   tag_release:
     runs-on: ubuntu-latest
