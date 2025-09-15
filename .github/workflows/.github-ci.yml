@@ -11,6 +11,9 @@ permissions:
   contents: write # For pushing tags
   packages: write # For registry, if needed
 
+env:
+  PACKAGE_NAME: "frontend"
+
 jobs:
   validate_branch_name:
     runs-on: ubuntu-latest
@@ -257,17 +260,6 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          output-format: json
-          output-file: gitleaks-report.json
-          exit-code: 1
-      - name: Upload Gitleaks report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: gitleaks-report
-          path: gitleaks-report.json
-          retention-days: 2
 
   unit_test:
     runs-on: ubuntu-latest
@@ -333,7 +325,7 @@ jobs:
           output: "trivy-fs-results.sarif"
           severity: "HIGH,CRITICAL"
           exit-code: 1
-          trivy-args: "--pkg-types npm,yarn --include-dev-deps --scanners vuln,secret,misconfig"
+          scanners: vuln,secret,misconfig
 
       - name: Upload Trivy FS report
         uses: actions/upload-artifact@v4
@@ -352,48 +344,16 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           cd artifacts
-          tar -czf frontend-${{ env.VERSION }}.tar.gz *
-
-      # - name: Upload build artifact
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: frontend-build
-      #     path: artifacts/frontend-${{ env.VERSION }}.tar.gz
-      #     retention-days: 7
+          tar -czf ${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz *
 
       - name: Upload to GitHub Releases
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/frontend-${{ env.VERSION }}.tar.gz
+          files: artifacts/${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz
           name: Release v${{ env.VERSION }}
           tag_name: v${{ env.VERSION }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # tag_release:
-  #   runs-on: ubuntu-latest
-  #   needs: [build_and_upload_frontend, extract_version]
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #         token: ${{ secrets.GITHUB_TOKEN }} # Needed for pushing tags
-  #     - name: Tag release
-  #       run: |
-  #         VERSION=${{ needs.extract_version.outputs.version }}
 
-  #         echo "Got version from extract_version job $VERSION"
-
-  #         # Skip tagging if version is 0.0.0
-  #         if [ "$VERSION" = "0.0.0" ]; then
-  #           echo "Version is 0.0.0 – skipping tag creation"
-  #           exit 0
-  #         fi
-
-  #         git config --global user.email "ci@github.com"
-  #         git config --global user.name "GitHub Actions"
-  #         git tag "v$VERSION"
-  #         git push origin "v$VERSION"
