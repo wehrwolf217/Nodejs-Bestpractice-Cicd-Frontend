@@ -3,3 +3,5 @@ README.md
 # Yarn PnP files (generated)
 .pnp.cjs
 .pnp.loader.mjs
+README.md
+.github/*
