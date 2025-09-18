@@ -1,0 +1,303 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write # For pushing tags
+
+env:
+  PACKAGE_NAME: "frontend"
+
+jobs:
+  validate_branch_name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate branch name
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          echo "Validating branch naming convention..."
+          if [[ "$BRANCH_NAME" =~ ^(feature|fix)/[A-Za-z0-9._-]+$ ]]; then
+            echo "✔ Branch name valid"
+          else
+            echo "❌ Invalid branch name: $BRANCH_NAME"
+            exit 1
+          fi
+
+  validate_version_bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Validate version bump
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          git fetch origin main
+          if ! git ls-tree -r origin/main --name-only | grep -q '^package.json$'; then
+            echo "No package.json found in main branch – skipping"
+            exit 0
+          fi
+          MAIN_VERSION=$(git show origin/main:package.json | jq -r .version)
+          CURRENT_VERSION=$(jq -r .version package.json)
+
+          echo "Main version:    $MAIN_VERSION"
+          echo "Current version: $CURRENT_VERSION"
+
+          # --- Skip validation if either version is 0.0.0 ---
+          if [ "$MAIN_VERSION" = "0.0.0" ] || [ "$CURRENT_VERSION" = "0.0.0" ]; then
+            echo "Version 0.0.0 detected – skipping version validation"
+            exit 0
+          fi
+
+          # --- Parse semver X.Y.Z in a shellcheck-friendly way ---
+          # Strip prerelease/build metadata (e.g. "1.2.3-beta.1" -> "1.2.3")
+          MAIN_SIMPLE=${MAIN_VERSION%%[-+]*}
+          CURR_SIMPLE=${CURRENT_VERSION%%[-+]*}
+
+          # Extract components
+          main_major=${MAIN_SIMPLE%%.*}
+          rest=${MAIN_SIMPLE#*.}
+          main_minor=${rest%%.*}
+          main_patch=${rest#*.}
+
+          curr_major=${CURR_SIMPLE%%.*}
+          restc=${CURR_SIMPLE#*.}
+          curr_minor=${restc%%.*}
+          curr_patch=${restc#*.}
+
+          # Fallback to 0 if any piece is empty (defensive)
+          [ -z "$main_major" ] && main_major=0
+          [ -z "$main_minor" ] && main_minor=0
+          [ -z "$main_patch" ] && main_patch=0
+          [ -z "$curr_major" ] && curr_major=0
+          [ -z "$curr_minor" ] && curr_minor=0
+          [ -z "$curr_patch" ] && curr_patch=0
+
+          echo "Parsed main version: major=$main_major, minor=$main_minor, patch=$main_patch"
+          echo "Parsed curr version: major=$curr_major, minor=$curr_minor, patch=$curr_patch"
+
+          # If major is increased, accept any minor/patch (major bump allowed)
+          if [ "$curr_major" -gt "$main_major" ]; then
+            echo "✔ Major version bumped (main: $MAIN_VERSION → current: $CURRENT_VERSION) — accepting any minor/patch"
+            exit 0
+          fi
+
+          # Disallow major downgrade
+          if [ "$curr_major" -lt "$main_major" ]; then
+            echo "❌ Major version must not be decreased (main: $MAIN_VERSION → current: $CURRENT_VERSION)"
+            exit 1
+          fi
+
+          # At this point curr_major == main_major
+          case "$BRANCH_NAME" in
+            fix/*)
+              if [ "$curr_minor" -eq "$main_minor" ] && [ "$curr_patch" -gt "$main_patch" ]; then
+                echo "✔ Patch version correctly incremented for fix branch"
+                exit 0
+              else
+                echo "❌ Patch version must be incremented for fix branches (main: $MAIN_VERSION → current: $CURRENT_VERSION)"
+                exit 1
+              fi
+              ;;
+            feature/*)
+              if [ "$curr_minor" -gt "$main_minor" ]; then
+                echo "✔ Minor version correctly incremented for feature branch"
+                exit 0
+              else
+                echo "❌ Minor version must be incremented for feature branches (main: $MAIN_VERSION → current: $CURRENT_VERSION)"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "⚠️ Not a fix/ or feature/ branch – skipping version validation"
+              exit 0
+              ;;
+          esac
+
+  extract_version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Extract version
+        id: extract
+        run: |
+          VERSION=$(jq -r .version package.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+  install_dependencies:
+    runs-on: ubuntu-latest
+    needs: [extract_version, validate_branch_name, validate_version_bump]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node with Yarn
+        uses: ./.github/actions/setup-node # Calls the composite action for Node + Yarn + cache
+        with:
+          yarn-version: "4.9.2"
+      - name: Install dependencies
+        run: |
+          set -x 
+          echo "Starting yarn install"
+          yarn install --immutable
+          echo "Yarn install completed successfully"
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: [install_dependencies]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run Lint
+        uses: ./.github/actions/code-quality
+        with:
+          command: lint
+
+  format_check_new:
+    runs-on: ubuntu-latest
+    needs: [install_dependencies]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run Format Check
+        uses: ./.github/actions/code-quality
+        with:
+          command: format
+
+  typecheck:
+    runs-on: ubuntu-latest
+    needs: [install_dependencies]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run Typecheck
+        uses: ./.github/actions/code-quality
+        with:
+          command: typecheck
+
+  unit_test:
+    runs-on: ubuntu-latest
+    needs: [typecheck, format_check_new, lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node with Yarn
+        uses: ./.github/actions/setup-node
+        with:
+          yarn-version: "4.9.2"
+      - name: Install jest-junit
+        shell: bash
+        run: yarn add --dev jest-junit
+      - name: Run Unit Tests with TAP and Convert to XML
+        shell: bash
+        run: |
+          echo "Running unit/integration tests..."
+          yarn test --testResultsProcessor jest-junit
+      - name: Upload Test Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-report
+          path: junit.xml
+          retention-days: 2
+
+  yarn_audit:
+    runs-on: ubuntu-latest
+    needs: [unit_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node with Yarn
+        uses: ./.github/actions/setup-node
+        with:
+          yarn-version: "4.9.2"
+      - name: Run Yarn Audit
+        run: |
+          echo "Running Yarn Audit for critical issues only..."
+          yarn npm audit --severity critical --json > yarn-audit-report.json 
+      - name: Upload Yarn Audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yarn-audit-report
+          path: yarn-audit-report.json
+          retention-days: 2
+
+  semgrep_scan:
+    runs-on: ubuntu-latest
+    needs: [unit_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Semgrep
+        run: pip install semgrep
+      - name: Run Semgrep Scan
+        run: semgrep scan --config p/owasp-top-ten --config p/javascript --config p/nodejs --output semgrep-SAST.json --error --debug --max-log-list-entries=0 ./src
+      - name: Upload Semgrep report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-report
+          path: semgrep-SAST.json
+          retention-days: 2
+
+  gitleaks_scan:
+    runs-on: ubuntu-latest
+    needs: [unit_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+      - name: Run Gitleaks Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build_and_upload_frontend:
+    runs-on: ubuntu-latest
+    needs: [gitleaks_scan, semgrep_scan, yarn_audit, extract_version]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node with Yarn
+        uses: ./.github/actions/setup-node
+        with:
+          yarn-version: "4.9.2"
+        run: |
+          yarn install --immutable
+          yarn build
+          mkdir -p artifacts
+          cp -r out/* artifacts/ || cp -r build/* artifacts/ || cp -r dist/* artifacts/
+          cd artifacts
+
+      - name: Scan build artifacts with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "artifacts/"
+          format: "sarif"
+          output: "trivy-fs-results.sarif"
+          severity: "HIGH,CRITICAL"
+          exit-code: 1
+          scanners: vuln,secret,misconfig
+
+      - name: Upload Trivy FS report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-fs-report
+          path: trivy-fs-results.sarif
+          retention-days: 2

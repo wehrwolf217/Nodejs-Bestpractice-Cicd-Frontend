@@ -1,0 +1,253 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write # For pushing tags
+
+env:
+  PACKAGE_NAME: "frontend"
+
+jobs:
+  extract_version:
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'pull_request') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Extract version
+        id: extract
+        run: |
+          VERSION=$(jq -r .version package.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+  tag_release:
+    runs-on: ubuntu-latest
+    needs: [extract_version]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }} # Needed for pushing tags
+      - name: Tag release
+        run: |
+          VERSION=${{ needs.extract_version.outputs.version }}
+
+          echo "Got version from extract_version job $VERSION"
+
+          # Skip tagging if version is 0.0.0
+          if [ "$VERSION" = "0.0.0" ]; then
+            echo "Version is 0.0.0 – skipping tag creation"
+            exit 0
+          fi
+
+          git config --global user.email "ci@github.com"
+          git config --global user.name "GitHub Actions"
+
+          # Check if tag already exists
+          if git tag -l "v$VERSION" | grep -q "v$VERSION"; then
+            echo "Tag v$VERSION already exists – skipping tag creation"
+            exit 0
+          fi
+
+          git tag "v$VERSION"          
+          git push origin "v$VERSION"
+
+  install_dependencies:
+    runs-on: ubuntu-latest
+    needs: [tag_release]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node with Yarn
+        uses: ./.github/actions/setup-node # Calls the composite action for Node + Yarn + cache
+        with:
+          yarn-version: "4.9.2"
+      - name: Install dependencies
+        run: |
+          set -x 
+          echo "Starting yarn install"
+          yarn install --immutable
+          echo "Yarn install completed successfully"
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: [install_dependencies]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run Lint
+        uses: ./.github/actions/code-quality
+        with:
+          command: lint
+
+  format_check_new:
+    runs-on: ubuntu-latest
+    needs: [install_dependencies]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run Format Check
+        uses: ./.github/actions/code-quality
+        with:
+          command: format
+
+  typecheck:
+    runs-on: ubuntu-latest
+    needs: [install_dependencies]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run Typecheck
+        uses: ./.github/actions/code-quality
+        with:
+          command: typecheck
+
+  unit_test:
+    runs-on: ubuntu-latest
+    needs: [typecheck, format_check_new, lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node with Yarn
+        uses: ./.github/actions/setup-node
+        with:
+          yarn-version: "4.9.2"
+      - name: Install jest-junit
+        shell: bash
+        run: yarn add --dev jest-junit
+      - name: Run Unit Tests and Generate Report
+        shell: bash
+        run: |
+          echo "Running unit/integration tests..."
+          yarn test --testResultsProcessor jest-junit
+      - name: Upload Test Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-report
+          path: junit.xml
+          retention-days: 2
+
+  yarn_audit:
+    runs-on: ubuntu-latest
+    needs: [unit_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node with Yarn
+        uses: ./.github/actions/setup-node
+        with:
+          yarn-version: "4.9.2"
+      - name: Run Yarn Audit
+        run: |
+          echo "Running Yarn Audit for critical issues only..."
+          yarn npm audit --severity critical --json > yarn-audit-report.json # || true # Adjust to `exit 1` if you want to fail the pipeline
+      - name: Upload Yarn Audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yarn-audit-report
+          path: yarn-audit-report.json
+          retention-days: 2
+
+  semgrep_scan:
+    runs-on: ubuntu-latest
+    needs: [unit_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Semgrep
+        run: pip install semgrep
+      - name: Run Semgrep Scan
+        run: semgrep scan --config p/owasp-top-ten --config p/javascript --config p/nodejs --output semgrep-SAST.json --error --debug --max-log-list-entries=0 ./src
+      - name: Upload Semgrep report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-report
+          path: semgrep-SAST.json
+          retention-days: 2
+
+  gitleaks_scan:
+    runs-on: ubuntu-latest
+    needs: [unit_test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed for full history scan
+      - name: Run Gitleaks Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build_and_upload_frontend:
+    runs-on: ubuntu-latest
+    needs: [semgrep_scan, gitleaks_scan, yarn_audit, tag_release]
+    env:
+      VERSION: ${{ needs.extract_version.outputs.version }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node with Yarn
+        uses: ./.github/actions/setup-node
+        with:
+          yarn-version: "4.9.2"
+        run: |
+          yarn install --immutable
+          yarn build
+          mkdir -p artifacts
+          cp -r out/* artifacts/ || cp -r build/* artifacts/ || cp -r dist/* artifacts/
+          cd artifacts
+
+      - name: Scan build artifacts with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "artifacts/"
+          format: "sarif"
+          output: "trivy-fs-results.sarif"
+          severity: "HIGH,CRITICAL"
+          exit-code: 1
+          scanners: vuln,secret,misconfig
+
+      - name: Upload Trivy FS report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-fs-report
+          path: trivy-fs-results.sarif
+          retention-days: 2
+
+      - name: Create archive
+        run: |
+          cd artifacts
+          tar -czf ${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz *
+
+      - name: Create release
+        if: env.VERSION != '0.0.0'
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: v${{ env.VERSION }}
+          release_name: Release v${{ env.VERSION }}
+          body: Automatic release for version ${{ env.VERSION }}
+          draft: false
+          prerelease: false
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz
+          asset_name: ${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz
+          asset_content_type: application/gzip
+        
