@@ -276,6 +276,8 @@ jobs:
         uses: ./.github/actions/setup-node
         with:
           yarn-version: "4.9.2"
+
+      - name: Install dependencies and build
         run: |
           yarn install --immutable
           yarn build
