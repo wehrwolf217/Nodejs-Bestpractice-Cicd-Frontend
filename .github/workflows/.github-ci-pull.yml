@@ -35,8 +35,6 @@ jobs:
         env:
           BRANCH_NAME: ${{ github.head_ref }}
         run: |
-
-          
           git fetch origin main
           if ! git ls-tree -r origin/main --name-only | grep -q '^package.json$'; then
             echo "No package.json found in main branch – skipping"
@@ -118,23 +116,10 @@ jobs:
               exit 0
               ;;
           esac
-
-  extract_version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.extract.outputs.version }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Extract version
-        id: extract
-        run: |
-          VERSION=$(jq -r .version package.json)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
           
   install_dependencies:
     runs-on: ubuntu-latest
-    needs: [tag_release]
+    needs: [validate_branch_name, validate_version_bump]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -280,29 +265,6 @@ jobs:
           mkdir -p artifacts
           cp -r out/* artifacts/ || cp -r build/* artifacts/ || cp -r dist/* artifacts/
           cd artifacts
-          
-          # Calculate build metrics
-          ARCHIVE_SIZE=$(du -sh . | cut -f1)
-          FILE_COUNT=$(find . -type f | wc -l)
-          echo "ARCHIVE_SIZE=$ARCHIVE_SIZE" >> $GITHUB_ENV
-          echo "FILE_COUNT=$FILE_COUNT" >> $GITHUB_ENV
-
-      - name: Generate Build Validation Summary
-        if: always()
-        run: |
-          echo "## 🏗️ Build Validation Summary (Pull Request)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Build Status | ✅ Successful |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build Size | ${{ env.ARCHIVE_SIZE }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Files Count | ${{ env.FILE_COUNT }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Branch | \`${{ github.head_ref }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Context | Pull Request Validation |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Build validation passed!** Static files are ready for deployment." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Note:** This is a validation build only. Release artifacts will be created on merge to main branch." >> $GITHUB_STEP_SUMMARY
 
       - name: Scan build artifacts with Trivy
         uses: aquasecurity/trivy-action@master
@@ -315,30 +277,6 @@ jobs:
           exit-code: 1
           scanners: vuln,secret,misconfig
 
-      - name: Generate Trivy Summary
-        if: always()
-        run: |
-          # Parse Trivy SARIF results
-          if [ -f "trivy-fs-results.sarif" ]; then
-            CRITICAL=$(jq '.runs[0].results | length' trivy-fs-results.sarif 2>/dev/null || echo "0")
-            
-            echo "## 🛡️ Trivy Sec Audit Results (Pull Request)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "| Severity | Findings |" >> $GITHUB_STEP_SUMMARY
-            echo "|----------|----------|" >> $GITHUB_STEP_SUMMARY
-            echo "| 🔴 Critical | ${CRITICAL} |" >> $GITHUB_STEP_SUMMARY
-            echo "| 🟠 High | 0 (filtered) |" >> $GITHUB_STEP_SUMMARY
-            echo "| 🟡 Medium+ | 0 (filtered) |" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            
-            if [ "${CRITICAL}" -gt 0 ]; then
-              echo "❌ **Critical security issues found in build artifacts!**" >> $GITHUB_STEP_SUMMARY
-              echo "Build cannot proceed with critical vulnerabilities." >> $GITHUB_STEP_SUMMARY
-            else
-              echo "✅ **No critical security issues found in build artifacts.**" >> $GITHUB_STEP_SUMMARY
-            fi
-          fi
-
       - name: Upload Trivy FS report
         id: upload-trivy
         uses: actions/upload-artifact@v4
@@ -347,9 +285,4 @@ jobs:
           name: trivy-fs-report
           path: trivy-fs-results.sarif
           retention-days: 2
-      - name: Add Artifact Link to Summary
-        if: always()
-        run: |
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📎 **Artifacts**: [Download Trivy Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-trivy.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
       
