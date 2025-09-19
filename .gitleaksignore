@@ -1,0 +1,3 @@
+[[rules]]
+description = "ignore test API key from commit 062695b"
+fingerprint = "062695b4485aa695ffbcfc1cc731aadc7e2b1bb4:src/app/layout.tsx:generic-api-key:45"
