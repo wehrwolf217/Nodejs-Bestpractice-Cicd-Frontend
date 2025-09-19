@@ -223,7 +223,7 @@ jobs:
       - name: Install Semgrep
         run: pip install semgrep
       - name: Run Semgrep Scan
-        run: semgrep scan --config p/owasp-top-ten --config p/javascript --config p/nodejs --output semgrep-SAST.sarif --sarif --error --debug ./src
+        run: semgrep scan --config p/owasp-top-ten --config p/javascript --config p/nodejs --output semgrep-SAST.sarif --sarif --error ./src
       - name: Upload Semgrep report
         id: upload-semgrep
         uses: actions/upload-artifact@v4
