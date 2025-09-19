@@ -316,7 +316,7 @@ jobs:
             FAILURES=$(grep -o 'failures="[0-9]*"' junit.xml | head -1 | sed 's/failures="//;s/"//')
             TIME=$(grep -o 'time="[0-9.]*"' junit.xml | head -1 | sed 's/time="//;s/"//')
             
-            echo "## 🧪 Test Results (PR Validation)" >> $GITHUB_STEP_SUMMARY
+            echo "## 🧪 Unit Test Results" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -331,7 +331,7 @@ jobs:
               echo "✅ **All tests passed!**" >> $GITHUB_STEP_SUMMARY
             fi
           else
-            echo "## 🧪 Test Results (PR Validation)" >> $GITHUB_STEP_SUMMARY
+            echo "## 🧪 Unit Test Results" >> $GITHUB_STEP_SUMMARY
             echo "⚠️ Test report not found or tests didn't run." >> $GITHUB_STEP_SUMMARY
           fi
       - name: Upload Test Report
@@ -354,8 +354,17 @@ jobs:
           yarn-version: "4.9.2"
       - name: Run Yarn Audit
         run: |
-          echo "Running Yarn Audit for critical issues only..."
-          yarn npm audit --severity critical --json > yarn-audit-report.json 
+          echo "Running Yarn Audit..."
+          yarn npm audit --json > yarn-audit-report.json
+          
+          # Check for critical and high vulnerabilities and fail if found
+          CRITICAL=$(jq '.data.vulnerabilities.critical // 0' yarn-audit-report.json 2>/dev/null || echo "0")
+          HIGH=$(jq '.data.vulnerabilities.high // 0' yarn-audit-report.json 2>/dev/null || echo "0")
+          
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "❌ Found $CRITICAL critical and $HIGH high vulnerabilities! Failing build."
+            exit 1
+          fi 
       - name: Generate Audit Summary
         if: always()
         run: |
@@ -364,6 +373,8 @@ jobs:
             CRITICAL=$(jq '.data.vulnerabilities.critical // 0' yarn-audit-report.json 2>/dev/null || echo "0")
             HIGH=$(jq '.data.vulnerabilities.high // 0' yarn-audit-report.json 2>/dev/null || echo "0")
             MODERATE=$(jq '.data.vulnerabilities.moderate // 0' yarn-audit-report.json 2>/dev/null || echo "0")
+            LOW=$(jq '.data.vulnerabilities.low // 0' yarn-audit-report.json 2>/dev/null || echo "0")
+            INFO=$(jq '.data.vulnerabilities.info // 0' yarn-audit-report.json 2>/dev/null || echo "0")
             
             echo "## 🔍 Dependency Audit Results (PR)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -372,12 +383,16 @@ jobs:
             echo "| 🔴 Critical | ${CRITICAL} |" >> $GITHUB_STEP_SUMMARY
             echo "| 🟠 High | ${HIGH} |" >> $GITHUB_STEP_SUMMARY
             echo "| 🟡 Moderate | ${MODERATE} |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔵 Low | ${LOW} |" >> $GITHUB_STEP_SUMMARY
+            echo "| ℹ️ Info | ${INFO} |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             
             if [ "${CRITICAL}" -gt 0 ] || [ "${HIGH}" -gt 0 ]; then
-              echo "⚠️ **Security vulnerabilities found!** Review the audit report artifact." >> $GITHUB_STEP_SUMMARY
+              echo "❌ **Critical or high vulnerabilities found!** Build will fail. Review and fix issues." >> $GITHUB_STEP_SUMMARY
+            elif [ "${MODERATE}" -gt 0 ]; then
+              echo "⚠️ **Moderate severity vulnerabilities found.** Consider fixing before merge." >> $GITHUB_STEP_SUMMARY
             else
-              echo "✅ **No critical or high severity vulnerabilities found.**" >> $GITHUB_STEP_SUMMARY
+              echo "✅ **No blocking vulnerabilities found.**" >> $GITHUB_STEP_SUMMARY
             fi
           fi
       - name: Upload Yarn Audit report
@@ -405,7 +420,7 @@ jobs:
           if [ -f "semgrep-SAST.json" ]; then
             ERRORS=$(jq '.results | length' semgrep-SAST.json 2>/dev/null || echo "0")
             
-            echo "## 🔒 Security Scan Results (PR Validation)" >> $GITHUB_STEP_SUMMARY
+            echo "## 🔒 Security Scan Results" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -503,7 +518,7 @@ jobs:
           if [ -f "trivy-fs-results.sarif" ]; then
             CRITICAL=$(jq '.runs[0].results | length' trivy-fs-results.sarif 2>/dev/null || echo "0")
             
-            echo "## 🛡️ Build Artifact Security Scan (PR)" >> $GITHUB_STEP_SUMMARY
+            echo "## 🛡️ Trivy Sec Audit Results" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "| Severity | Findings |" >> $GITHUB_STEP_SUMMARY
             echo "|----------|----------|" >> $GITHUB_STEP_SUMMARY
