@@ -218,6 +218,22 @@ jobs:
         uses: ./.github/actions/code-quality
         with:
           command: lint
+      - name: Generate Lint Summary
+        if: always()
+        run: |
+          echo "## 🔍 ESLint Code Quality Check (PR)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| ESLint | ${{ job.status == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ **No linting issues found.** Code follows ESLint rules." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Linting issues detected!** Check the job logs for details." >> $GITHUB_STEP_SUMMARY
+            echo "Run \`yarn lint\` locally to fix issues before pushing." >> $GITHUB_STEP_SUMMARY
+          fi
 
   format_check_new:
     runs-on: ubuntu-latest
@@ -229,6 +245,22 @@ jobs:
         uses: ./.github/actions/code-quality
         with:
           command: format
+      - name: Generate Format Summary
+        if: always()
+        run: |
+          echo "## 💅 Prettier Code Formatting Check (PR)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Prettier Format | ${{ job.status == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ **Code is properly formatted.** All files follow Prettier rules." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Formatting issues detected!** Check the job logs for details." >> $GITHUB_STEP_SUMMARY
+            echo "Run \`yarn format\` locally to auto-fix formatting issues." >> $GITHUB_STEP_SUMMARY
+          fi
 
   typecheck:
     runs-on: ubuntu-latest
@@ -240,6 +272,22 @@ jobs:
         uses: ./.github/actions/code-quality
         with:
           command: typecheck
+      - name: Generate Typecheck Summary
+        if: always()
+        run: |
+          echo "## 🔷 TypeScript Type Checking (PR)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| TypeScript Types | ${{ job.status == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ **No type errors found.** All TypeScript types are valid." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Type errors detected!** Check the job logs for details." >> $GITHUB_STEP_SUMMARY
+            echo "Run \`yarn typecheck\` locally to identify and fix type issues." >> $GITHUB_STEP_SUMMARY
+          fi
 
   unit_test:
     runs-on: ubuntu-latest
