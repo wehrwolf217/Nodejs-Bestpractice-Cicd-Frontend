@@ -199,49 +199,87 @@ The CI/CD pipeline is split into **two separate workflows** for optimal performa
 ### 🔄 Pipeline Flow Overview
 
 ```mermaid
-graph TD
-    subgraph PR["🔍 Pull Request Workflow (.github-ci-pull.yml)"]
-        PR1[validate_branch_name] 
-        PR2[validate_version_bump]
-        PR1 --> PR3[install_dependencies]
-        PR2 --> PR3
-        PR3 --> PR4A[lint]
-        PR3 --> PR4B[format_check_new]
-        PR3 --> PR4C[typecheck]
-        PR4A --> PR5[unit_test]
-        PR4B --> PR5
-        PR4C --> PR5
-        PR5 --> PR6A[yarn_audit]
-        PR5 --> PR6B[semgrep_scan]
-        PR5 --> PR6C[gitleaks_scan]
-        PR6A --> PR7[validate_build]
-        PR6B --> PR7
-        PR6C --> PR7
+graph TB
+    A[🌿 Pull Request] --> B["📋 PR Pipeline"]
+    C[🚀 Push to Main] --> D["🚀 Push Pipeline"]
+
+    subgraph B ["Pull Request Pipeline (.github-ci-pull.yml)"]
+        direction TB
+        
+        subgraph B1 ["🔍 Validation (Parallel)"]
+            BP1[validate_branch_name]
+            BP2[validate_version_bump] 
+        end
+        
+        B4[install_dependencies]
+        
+        subgraph B2 ["✨ Code Quality (Parallel)"]
+            BQ1[lint] 
+            BQ2[format_check_new]
+            BQ3[typecheck]
+        end
+        
+        B5[unit_test]
+        
+        subgraph B3 ["🛡️ Security Scanning (Parallel)"]
+            BS1[yarn_audit]
+            BS2[semgrep_scan]
+            BS3[gitleaks_scan]
+        end
+        
+        B6[validate_build]
+        B7[📝 Build validated but NO release created]
+        
+        B1 --> B4
+        B4 --> B2
+        B2 --> B5
+        B5 --> B3
+        B3 --> B6
+        B6 --> B7
     end
 
-    subgraph PUSH["🚀 Main Branch Workflow (.github-ci-push.yml)"]
-        PUSH1[extract_version] 
-        PUSH1 --> PUSH2[tag_release]
-        PUSH2 --> PUSH3[install_dependencies]
-        PUSH3 --> PUSH4A[lint]
-        PUSH3 --> PUSH4B[format_check_new]
-        PUSH3 --> PUSH4C[typecheck]
-        PUSH4A --> PUSH5[unit_test]
-        PUSH4B --> PUSH5
-        PUSH4C --> PUSH5
-        PUSH5 --> PUSH6A[yarn_audit]
-        PUSH5 --> PUSH6B[semgrep_scan]
-        PUSH5 --> PUSH6C[gitleaks_scan]
-        PUSH6A --> PUSH7[build_and_upload_frontend]
-        PUSH6B --> PUSH7
-        PUSH6C --> PUSH7
-        PUSH1 --> PUSH7
+    subgraph D ["Push Pipeline (.github-ci-push.yml)"]
+        direction TB
+        
+        D1[extract_version]
+        D2[tag_release]
+        D3[install_dependencies]
+        
+        subgraph D4 ["✨ Code Quality (Parallel)"]
+            DQ1[lint]
+            DQ2[format_check_new]
+            DQ3[typecheck]
+        end
+        
+        D5[unit_test]
+        
+        subgraph D6 ["🛡️ Security Scanning (Parallel)"]
+            DS1[yarn_audit]
+            DS2[semgrep_scan] 
+            DS3[gitleaks_scan]
+        end
+        
+        D7[build_and_upload_frontend]
+        D8[📝 Static assets built & GitHub release created]
+        
+        D1 --> D2
+        D2 --> D3
+        D3 --> D4
+        D4 --> D5
+        D5 --> D6
+        D6 --> D7
+        D7 --> D8
     end
 
-    PR --> |PR Approved & Merged| PUSH
-
-    style PR fill:#e3f2fd
-    style PUSH fill:#e8f5e8
+    classDef validationStyle fill:#fff3e0,stroke:#ff9800,stroke-width:2px
+    classDef qualityStyle fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    classDef securityStyle fill:#ffebee,stroke:#f44336,stroke-width:2px
+    classDef pipelineStyle fill:#e3f2fd,stroke:#2196f3,stroke-width:2px
+    
+    class B1,D1,D2 validationStyle
+    class B2,D4 qualityStyle
+    class B3,D6 securityStyle
+    class B,D pipelineStyle
 ```
 
 ### 🎯 Workflow Differences
