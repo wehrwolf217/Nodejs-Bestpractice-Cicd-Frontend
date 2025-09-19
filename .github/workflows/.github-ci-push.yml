@@ -234,9 +234,6 @@ jobs:
           cd artifacts
           tar -czf ${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz *
 
-      - name: Setup GitHub CLI
-        uses: actions/setup-gh@v1
-
       - name: Create release
         if: env.VERSION != '0.0.0'
         run: gh release create v${{ env.VERSION }} --title "Release v${{ env.VERSION }}" --notes "Automatic release for version ${{ env.VERSION }}" --generate-notes # --draft --prerelease if needed
