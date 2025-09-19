@@ -424,7 +424,7 @@ jobs:
       - name: Install Semgrep
         run: pip install semgrep
       - name: Run Semgrep Scan
-        run: semgrep scan --config p/owasp-top-ten --config p/javascript --config p/nodejs --output semgrep-SAST.json --error --debug --max-log-list-entries=0 ./src
+        run: semgrep scan --config p/owasp-top-ten --config p/javascript --config p/nodejs --output semgrep-SAST.json --error  ./src # --debug --max-log-list-entries=0
       - name: Generate Semgrep Summary
         if: always()
         run: |
