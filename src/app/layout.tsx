@@ -32,19 +32,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-// SQL Injection уязвимость
-const userId = req.query.id;
-const query = "SELECT * FROM users WHERE id = " + userId; // ❌ SQL injection
-
-// XSS уязвимость
-const userInput = req.body.content;
-return <div dangerouslySetInnerHTML={{ __html: userInput }} />; // ❌ XSS
-
-// Hardcoded credentials
-const API_KEY = "sk-1234567890abcdef"; // ❌ Hardcoded secret
-const password = "admin123"; // ❌ Hardcoded password
-
-// Command injection
-const userPath = req.query.path;
-require("child_process").exec("ls " + userPath); // ❌ Command injection
