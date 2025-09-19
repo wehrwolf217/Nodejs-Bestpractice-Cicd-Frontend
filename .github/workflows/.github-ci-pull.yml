@@ -4,9 +4,6 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  PACKAGE_NAME: "frontend"
-
 jobs:
   validate_branch_name:
     runs-on: ubuntu-latest

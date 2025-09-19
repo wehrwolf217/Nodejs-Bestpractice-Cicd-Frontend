@@ -6,7 +6,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Security](https://img.shields.io/badge/Security-Trivy%20%2B%20Semgrep-red?logo=security&logoColor=white)](https://github.com/aquasecurity/trivy)
 
-> A comprehensive GitHub Actions CI/CD pipeline demonstrating enterprise-grade best practices for Next.js frontend applications with automated versioning, security scanning, and static site deployment.
+> A comprehensive GitHub Actions CI/CD pipeline demonstrating enterprise-grade best practices for Next.js frontend applications with automated versioning, security scanning, and static site deployment. The pipeline consists of two separate workflows: Pull Request validation and Main branch deployment.
 
 ## 📋 Table of Contents
 
@@ -15,7 +15,7 @@
 - [⚙️ Configuration](#-configuration)
 - [✅ Next Steps](#-next-steps)
 - [🏗️ Pipeline Architecture](#-pipeline-architecture)
-- [🔄 Pipeline Jobs](#-pipeline-jobs)
+- [🔄 Pipeline Workflows](#-pipeline-workflows)
 - [📊 Generated Reports and Artifacts](#-generated-reports-and-artifacts)
 - [🌿 Branch Strategy](#-branch-strategy)
 - [📦 Versioning Strategy](#-versioning-strategy)
@@ -79,10 +79,10 @@ This setting optimizes caching behavior in CI environments.
 Set up the following in your GitHub repository settings:
 
 - **Secrets**:
-  - `GITHUB_TOKEN` (auto-provided for actions)
+  - `GITHUB_TOKEN` - **Automatically provided by GitHub Actions** (no need to create manually)
 
 - **Variables**:
-  - None required for basic setup
+  - `PACKAGE_NAME` (optional) - Custom name for build artifacts (defaults to "frontend")
 
 ### 5: Push Code to Remote
 
@@ -111,14 +111,16 @@ To ensure code quality and security, protect the main branch with approval requi
      - Require review from Code Owners: Optional
      - Restrict who can dismiss pull request reviews: Check, select maintainers/owners
    - **Require status checks to pass before merging**: Check, add the following required checks:
-     - `typecheck`
-     - `format_check_new`
+     - `validate_branch_name`
+     - `validate_version_bump`
      - `lint`
+     - `format_check_new`
+     - `typecheck`
      - `unit_test`
      - `yarn_audit`
      - `semgrep_scan`
      - `gitleaks_scan`
-     - `build_and_upload_frontend`
+     - `validate_build`
    - **Include administrators**: Uncheck if you want to enforce for owners too
    - **Restrict pushes that create matching branches**: Optional (leave unchecked to allow branch creation)
    - **Allow force pushes**: Uncheck
@@ -129,7 +131,7 @@ To ensure code quality and security, protect the main branch with approval requi
 
 This prevents direct pushes to main, requiring all changes to go through pull requests with approval from at least 1 maintainer or owner, and passing all validation checks, tests, and security scans.
 
-**Note**: Artifacts are pushed to the registry and tags are created only on push to main after PR approval/merge.
+**Note**: Release artifacts and GitHub releases are created only on push to main after PR approval/merge.
 
 ---
 
@@ -183,67 +185,94 @@ After completing the setup:
 
 ## 🏗️ Pipeline Architecture
 
-```mermaid
-graph TD
-    A[🌿 Branch Push/PR] --> B{Validation Block}
-    B --> C{Install Block}
-    C --> D{Code Quality Block}
-    D --> E{Security & Test Block}
-    E --> F{Build & Release Block}
+The CI/CD pipeline is split into **two separate workflows** for optimal performance and security:
 
-    subgraph B["🔍 Validation Block"]
-        B1((validate_branch_name))
-        B2((validate_version_bump))
-        B3((extract_version))
-    end
+### 📋 Workflow Files Structure
 
-    subgraph C["📦 Install Block"]
-        C1((install_dependencies))
-    end
-
-    subgraph D["✨ Code Quality Block"]
-        D1((lint))
-        D2((format_check_new))
-        D3((typecheck))
-    end
-
-    subgraph E["🛡️ Security & Test Block"]
-        E1((yarn_audit))
-        E2((semgrep_scan))
-        E3((gitleaks_scan))
-        E4((unit_test))
-    end
-
-    subgraph F["🏗️ Build & Release Block"]
-        F1((build_and_upload_frontend))
-        F2[📝 Builds static site, scans artifacts, and creates GitHub release]
-    end
-
-    style B fill:#e1f5fe
-    style C fill:#e8f5e8
-    style D fill:#fff3e0
-    style E fill:#ffebee
-    style F fill:#e3f2fd
+```
+.github/workflows/
+├── .github-ci-pull.yml    # Pull Request validation workflow
+└── .github-ci-push.yml    # Main branch deployment workflow
 ```
 
-## 🔄 Pipeline Jobs
+### 🔄 Pipeline Flow Overview
 
-The pipeline executes jobs in **sequential order** based on dependencies for optimal resource usage and clear failure points:
+```mermaid
+graph TB
+    subgraph PR["🔍 Pull Request Workflow (.github-ci-pull.yml)"]
+        PR1[validate_branch_name] --> PR2[validate_version_bump]
+        PR2 --> PR3[install_dependencies]
+        PR3 --> PR4[lint & format_check_new & typecheck]
+        PR4 --> PR5[unit_test]
+        PR5 --> PR6[yarn_audit & semgrep_scan & gitleaks_scan]
+        PR6 --> PR7[validate_build]
+    end
 
-| Job                  | Dependencies                                                                 | Purpose                                              | Execution             | Runs On   |
-| -------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------- | --------- |
-| `validate_branch_name` | None                                                                          | Branch naming validation                             | Parallel              | PR + Main |
-| `validate_version_bump` | None                                                                          | Semantic versioning checks                           | Parallel              | PR + Main |
-| `extract_version`    | None                                                                          | Extract version from package.json                     | Parallel              | PR + Main |
-| `install_dependencies` | `extract_version`, `validate_branch_name`, `validate_version_bump`           | Yarn 4 installation with caching                     | Sequential            | PR + Main |
-| `lint`               | `install_dependencies`, `extract_version`                                     | ESLint code linting                                  | Parallel              | PR + Main |
-| `format_check_new`   | `install_dependencies`, `extract_version`                                     | Prettier formatting check                            | Parallel              | PR + Main |
-| `typecheck`          | `install_dependencies`, `extract_version`                                     | TypeScript type checking                             | Parallel              | PR + Main |
-| `yarn_audit`         | `lint`, `format_check_new`, `typecheck`                                       | Yarn audit for vulnerabilities                        | Parallel              | PR + Main |
-| `semgrep_scan`       | `lint`, `format_check_new`, `typecheck`                                       | SAST analysis with OWASP rules                       | Parallel              | PR + Main |
-| `gitleaks_scan`      | `lint`, `format_check_new`, `typecheck`                                       | Secret detection scanning                            | Parallel              | PR + Main |
-| `unit_test`          | `lint`, `format_check_new`, `typecheck`                                       | Unit test execution                                  | Sequential            | PR + Main |
-| `build_and_upload_frontend` | `unit_test`, `extract_version`                                               | Next.js build, Trivy scan, and GitHub release (artifacts pushed and tagged only on push to main after PR approval)        | Sequential            | PR + Main |
+    subgraph PUSH["🚀 Main Branch Workflow (.github-ci-push.yml)"]
+        PUSH1[extract_version] --> PUSH2[tag_release]
+        PUSH2 --> PUSH3[install_dependencies]
+        PUSH3 --> PUSH4[lint & format_check_new & typecheck]
+        PUSH4 --> PUSH5[unit_test]
+        PUSH5 --> PUSH6[yarn_audit & semgrep_scan & gitleaks_scan]
+        PUSH6 --> PUSH7[build_and_upload_frontend]
+    end
+
+    PR --> |PR Approved & Merged| PUSH
+
+    style PR fill:#e3f2fd
+    style PUSH fill:#e8f5e8
+```
+
+### 🎯 Workflow Differences
+
+| Aspect | Pull Request Workflow | Main Branch Workflow |
+|--------|----------------------|---------------------|
+| **Purpose** | Code validation & quality checks | Release deployment |
+| **Triggers** | `pull_request` to `main` | `push` to `main` |
+| **Branch Validation** | ✅ Enforces naming conventions | ❌ Not needed |
+| **Version Bump** | ✅ Validates semantic versioning | ❌ Not needed |
+| **Tagging** | ❌ No tag creation | ✅ Creates git tags |
+| **Build Artifacts** | ✅ Validates build only | ✅ Creates and uploads artifacts |
+| **GitHub Releases** | ❌ No release creation | ✅ Creates GitHub releases |
+| **Permissions** | Read-only | `contents: write` |
+
+## 🔄 Pipeline Workflows
+
+### 🔍 Pull Request Workflow (`.github-ci-pull.yml`)
+
+Validates code quality and security on every pull request to `main` branch:
+
+| Job | Dependencies | Purpose | Execution |
+|-----|-------------|---------|-----------|
+| `validate_branch_name` | None | Enforces `feature/*` and `fix/*` naming conventions | Parallel |
+| `validate_version_bump` | None | Validates semantic versioning based on branch type | Parallel |
+| `install_dependencies` | `validate_branch_name`, `validate_version_bump` | Yarn 4 installation with caching | Sequential |
+| `lint` | `install_dependencies` | ESLint code linting | Parallel |
+| `format_check_new` | `install_dependencies` | Prettier formatting check | Parallel |
+| `typecheck` | `install_dependencies` | TypeScript type checking | Parallel |
+| `unit_test` | `lint`, `format_check_new`, `typecheck` | Jest unit test execution | Sequential |
+| `yarn_audit` | `unit_test` | Yarn audit for vulnerabilities | Parallel |
+| `semgrep_scan` | `unit_test` | SAST analysis with OWASP rules | Parallel |
+| `gitleaks_scan` | `unit_test` | Secret detection scanning | Parallel |
+| `validate_build` | `yarn_audit`, `semgrep_scan`, `gitleaks_scan` | Validates Next.js build (no artifacts) | Sequential |
+
+### 🚀 Main Branch Workflow (`.github-ci-push.yml`)
+
+Deploys to production after successful PR merge:
+
+| Job | Dependencies | Purpose | Execution |
+|-----|-------------|---------|-----------|
+| `extract_version` | None | Extract version from package.json | First |
+| `tag_release` | `extract_version` | Creates and pushes git tags | Sequential |
+| `install_dependencies` | `tag_release` | Yarn 4 installation with caching | Sequential |
+| `lint` | `install_dependencies` | ESLint code linting | Parallel |
+| `format_check_new` | `install_dependencies` | Prettier formatting check | Parallel |
+| `typecheck` | `install_dependencies` | TypeScript type checking | Parallel |
+| `unit_test` | `lint`, `format_check_new`, `typecheck` | Jest unit test execution | Sequential |
+| `yarn_audit` | `unit_test` | Yarn audit for vulnerabilities | Parallel |
+| `semgrep_scan` | `unit_test` | SAST analysis with OWASP rules | Parallel |
+| `gitleaks_scan` | `unit_test` | Secret detection scanning | Parallel |
+| `build_and_upload_frontend` | `yarn_audit`, `semgrep_scan`, `gitleaks_scan`, `tag_release`, `extract_version` | Builds, scans artifacts, creates GitHub release | Final |
 
 ## 📊 Generated Reports and Artifacts
 
@@ -415,38 +444,63 @@ If you encounter issues:
 
 ```
 your-nextjs-project/
-├── 📄 .github/workflows/.github-ci.yml  # CI/CD Pipeline
-├── 📦 package.json                      # Dependencies & scripts
-├── 🧶 yarn.lock                        # Dependency lock
-├── ⚙️ .yarnrc.yml                      # Yarn configuration
-├── 📝 next.config.ts                    # Next.js configuration
-├── 🔍 eslint.config.mjs                 # Linting rules
-├── 💅 .prettierignore                   # Prettier ignore rules
-├── 🧪 jest.config.ts                    # Jest configuration
-├── 🧪 jest.setup.ts                     # Jest setup
+├── � .github/workflows/                # CI/CD Pipeline workflows
+│   ├── .github-ci-pull.yml             # Pull request validation workflow
+│   └── .github-ci-push.yml             # Main branch deployment workflow
 ├── 📁 .github/actions/                  # Custom GitHub Actions
-│   ├── setup-node/action.yml            # Node.js setup action
-│   └── code-quality/action.yml          # Code quality action
-├── 📁 src/                              # Source code
-├── 🧪 __tests__/                        # Test files
-└── 📖 README.md                         # This file
+│   ├── setup-node/action.yml           # Node.js setup action
+│   └── code-quality/action.yml         # Code quality action
+├── 📦 package.json                     # Dependencies & scripts
+├── 🧶 yarn.lock                       # Dependency lock
+├── ⚙️ .yarnrc.yml                     # Yarn configuration
+├── 📝 next.config.ts                   # Next.js configuration
+├── 🔍 eslint.config.mjs                # Linting rules
+├── 💅 .prettierignore                  # Prettier ignore rules
+├── 🧪 jest.config.ts                   # Jest configuration
+├── 🧪 jest.setup.ts                    # Jest setup
+├── 📁 src/                             # Source code
+├── 🧪 __tests__/                       # Test files
+└── 📖 README.md                        # This file
 ```
 
 
 ## 🏷️ Environment Variables
 
-### Pipeline Variables
+### Global Environment Variables
 
-| Variable      | Purpose                     | Example                            |
-| ------------- | --------------------------- | ---------------------------------- |
-| `VERSION`     | Extracted from package.json | `1.2.3`                            |
-| `PACKAGE_NAME`| Set custom artifact name    | `my-frontend-app`                  |
+| Variable | Scope | Purpose | Default Value | Required |
+|----------|-------|---------|---------------|----------|
+| `PACKAGE_NAME` | Both workflows | Custom name for build artifacts | `"frontend"` | No |
 
-### Branch-Specific Variables
+### GitHub Provided Variables
 
-- `github.head_ref` - Source branch in PR
-- `github.ref` - Current branch name
-- `github.event_name` - Event type (push, pull_request)
+| Variable | Scope | Purpose | Auto-provided |
+|----------|-------|---------|---------------|
+| `GITHUB_TOKEN` | Both workflows | GitHub API authentication | ✅ Yes (automatic) |
+| `github.head_ref` | Pull Request workflow | Source branch name in PR | ✅ Yes |
+| `github.ref` | Main workflow | Current branch reference | ✅ Yes |
+| `github.event_name` | Both workflows | Event type (push, pull_request) | ✅ Yes |
+
+### Job-Specific Variables
+
+#### Pull Request Workflow
+| Variable | Job | Purpose | Source |
+|----------|-----|---------|--------|
+| `BRANCH_NAME` | `validate_branch_name` | Branch naming validation | `${{ github.head_ref }}` |
+| `BRANCH_NAME` | `validate_version_bump` | Version bump validation | `${{ github.head_ref }}` |
+
+#### Main Branch Workflow
+| Variable | Job | Purpose | Source |
+|----------|-----|---------|--------|
+| `VERSION` | `tag_release` | Version for git tagging | `${{ needs.extract_version.outputs.version }}` |
+| `VERSION` | `build_and_upload_frontend` | Version for artifact naming | `${{ needs.extract_version.outputs.version }}` |
+
+### 🔧 Configuration Notes
+
+- **`GITHUB_TOKEN`**: Automatically provided by GitHub Actions with appropriate permissions
+- **`PACKAGE_NAME`**: Can be customized in repository variables for different artifact naming
+- **Version**: Extracted from `package.json` at runtime, no manual configuration needed
+- **Permissions**: Main workflow requires `contents: write` for tagging and releases
 
 ## 🔧 Custom Actions
 
@@ -495,20 +549,28 @@ This composite action sets up Node with Yarn and runs specified code quality com
 
 ## 📚 Best Practices Implemented
 
+### ✅ **Dual Workflow Architecture**
+
+- **Separation of Concerns** - Pull request validation vs production deployment
+- **Optimized Performance** - Only necessary jobs run for each context
+- **Security Isolation** - Different permission levels for validation vs deployment
+- **Clear Responsibility** - Each workflow has a specific purpose and scope
+
 ### ✅ **Pipeline Optimization**
 
 - **Smart Caching** - Yarn cache with lock file keys
-- **Job-wise Execution** - Sequential jobs with parallel execution based on dependencies
-- **Conditional Jobs** - PR vs Main branch logic
+- **Parallel Execution** - Jobs run in parallel when dependencies allow
+- **Conditional Logic** - Different workflows for PR vs Main branch
 - **Fail-Fast** - Early pipeline termination on critical issues
-- **Resource Efficiency** - Jobs can run parallel when dependencies allow
+- **Resource Efficiency** - Optimized job dependencies and execution order
 
 ### ✅ **Security Best Practices**
 
-- **Shift-Left Security** - Early vulnerability detection
+- **Shift-Left Security** - Early vulnerability detection in PRs
 - **Multi-layered Scanning** - Dependencies, code, secrets, build artifacts
 - **Zero-Trust** - No security check bypassing
-- **Automated Remediation** - Block deployments on security issues
+- **Automated Remediation** - Block merges and deployments on security issues
+- **Token Security** - Automatic GitHub token provisioning
 
 ### ✅ **Code Quality Standards**
 
@@ -516,6 +578,7 @@ This composite action sets up Node with Yarn and runs specified code quality com
 - **Linting Rules** - ESLint with Next.js rules
 - **Type Safety** - TypeScript strict mode
 - **Test Coverage** - Jest testing framework
+- **Branch Validation** - Naming convention enforcement
 
 ### ✅ **Static Site Best Practices**
 
@@ -523,12 +586,14 @@ This composite action sets up Node with Yarn and runs specified code quality com
 - **Artifact Security** - Pre-deployment vulnerability scanning
 - **Release Management** - Automated GitHub releases
 - **Cross-platform Compatibility** - Static files work anywhere
+- **Version Management** - Semantic versioning with automated tagging
 
 ### ✅ **Git Workflow**
 
-- **Branch Protection** - Naming convention enforcement
+- **Branch Protection** - PR-only merging with validation gates
 - **Semantic Versioning** - Automated version management
 - **Release Automation** - GitHub releases on main
 - **Pull Request Gates** - Quality checks before merge
+- **Tag Management** - Automated git tagging
 
 ---
