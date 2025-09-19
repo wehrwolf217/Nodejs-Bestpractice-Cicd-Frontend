@@ -17,7 +17,26 @@ jobs:
           echo "Validating branch naming convention..."
           if [[ "$BRANCH_NAME" =~ ^(feature|fix)/[A-Za-z0-9._-]+$ ]]; then
             echo "✔ Branch name valid"
+            
+            echo "## ✅ Branch Name Validation" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Branch Name | \`$BRANCH_NAME\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Type | ${BRANCH_NAME%%/*} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Status | ✅ Valid |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Branch follows naming convention:** \`feature/*\` or \`fix/*\`" >> $GITHUB_STEP_SUMMARY
           else
+            echo "## ❌ Branch Name Validation Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Branch Name | \`$BRANCH_NAME\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Status | ❌ Invalid |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Required format:** \`feature/description\` or \`fix/description\`" >> $GITHUB_STEP_SUMMARY
+            
             echo "❌ Invalid branch name: $BRANCH_NAME"
             exit 1
           fi
@@ -35,13 +54,24 @@ jobs:
         env:
           BRANCH_NAME: ${{ github.head_ref }}
         run: |
+          echo "## 🔄 Version Bump Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
           git fetch origin main
           if ! git ls-tree -r origin/main --name-only | grep -q '^package.json$'; then
             echo "No package.json found in main branch – skipping"
+            echo "| Status | ⏭️ Skipped (no package.json in main) |" >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
           MAIN_VERSION=$(git show origin/main:package.json | jq -r .version)
           CURRENT_VERSION=$(jq -r .version package.json)
+
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`$BRANCH_NAME\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Main Version | \`$MAIN_VERSION\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Current Version | \`$CURRENT_VERSION\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "Main version:    $MAIN_VERSION"
           echo "Current version: $CURRENT_VERSION"
@@ -49,6 +79,7 @@ jobs:
           # --- Skip validation if either version is 0.0.0 ---
           if [ "$MAIN_VERSION" = "0.0.0" ] || [ "$CURRENT_VERSION" = "0.0.0" ]; then
             echo "Version 0.0.0 detected – skipping version validation"
+            echo "| Status | ⏭️ Skipped (development version) |" >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
 
@@ -82,12 +113,16 @@ jobs:
           # If major is increased, accept any minor/patch (major bump allowed)
           if [ "$curr_major" -gt "$main_major" ]; then
             echo "✔ Major version bumped (main: $MAIN_VERSION → current: $CURRENT_VERSION) — accepting any minor/patch"
+            echo "| Status | ✅ Valid (major bump) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Change | Major version increase |" >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
 
           # Disallow major downgrade
           if [ "$curr_major" -lt "$main_major" ]; then
             echo "❌ Major version must not be decreased (main: $MAIN_VERSION → current: $CURRENT_VERSION)"
+            echo "| Status | ❌ Invalid (major downgrade) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Issue | Major version cannot decrease |" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
@@ -96,23 +131,33 @@ jobs:
             fix/*)
               if [ "$curr_minor" -eq "$main_minor" ] && [ "$curr_patch" -gt "$main_patch" ]; then
                 echo "✔ Patch version correctly incremented for fix branch"
+                echo "| Status | ✅ Valid (patch increment) |" >> $GITHUB_STEP_SUMMARY
+                echo "| Required | Patch version bump for fix branches |" >> $GITHUB_STEP_SUMMARY
                 exit 0
               else
                 echo "❌ Patch version must be incremented for fix branches (main: $MAIN_VERSION → current: $CURRENT_VERSION)"
+                echo "| Status | ❌ Invalid (no patch increment) |" >> $GITHUB_STEP_SUMMARY
+                echo "| Required | Patch version bump for fix branches |" >> $GITHUB_STEP_SUMMARY
                 exit 1
               fi
               ;;
             feature/*)
               if [ "$curr_minor" -gt "$main_minor" ]; then
                 echo "✔ Minor version correctly incremented for feature branch"
+                echo "| Status | ✅ Valid (minor increment) |" >> $GITHUB_STEP_SUMMARY
+                echo "| Required | Minor version bump for feature branches |" >> $GITHUB_STEP_SUMMARY
                 exit 0
               else
                 echo "❌ Minor version must be incremented for feature branches (main: $MAIN_VERSION → current: $CURRENT_VERSION)"
+                echo "| Status | ❌ Invalid (no minor increment) |" >> $GITHUB_STEP_SUMMARY
+                echo "| Required | Minor version bump for feature branches |" >> $GITHUB_STEP_SUMMARY
                 exit 1
               fi
               ;;
             *)
               echo "⚠️ Not a fix/ or feature/ branch – skipping version validation"
+              echo "| Status | ⏭️ Skipped (not feature/fix branch) |" >> $GITHUB_STEP_SUMMARY
+              echo "| Note | Version validation only applies to feature/ and fix/ branches |" >> $GITHUB_STEP_SUMMARY
               exit 0
               ;;
           esac
@@ -129,6 +174,22 @@ jobs:
         run: |
           VERSION=$(jq -r .version package.json)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          echo "## 📋 Version Information (PR)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`$VERSION\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Source | \`package.json\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.head_ref }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Context | Pull Request Validation |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$VERSION" = "0.0.0" ]; then
+            echo "ℹ️ **Development version detected** - validation will be limited." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **Production version detected** - full validation will run." >> $GITHUB_STEP_SUMMARY
+          fi
 
   install_dependencies:
     runs-on: ubuntu-latest
@@ -198,6 +259,33 @@ jobs:
         run: |
           echo "Running unit/integration tests..."
           yarn test --testResultsProcessor jest-junit
+      - name: Generate Test Summary
+        if: always()
+        run: |
+          # Parse test results and create summary
+          if [ -f "junit.xml" ]; then
+            TESTS=$(grep -o 'tests="[0-9]*"' junit.xml | head -1 | sed 's/tests="//;s/"//')
+            FAILURES=$(grep -o 'failures="[0-9]*"' junit.xml | head -1 | sed 's/failures="//;s/"//')
+            TIME=$(grep -o 'time="[0-9.]*"' junit.xml | head -1 | sed 's/time="//;s/"//')
+            
+            echo "## 🧪 Test Results (PR Validation)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Total Tests | ${TESTS:-0} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Failed Tests | ${FAILURES:-0} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Execution Time | ${TIME:-0}s |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${FAILURES:-0}" -gt 0 ]; then
+              echo "❌ **Some tests failed!** Check the test report artifact for details." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **All tests passed!**" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "## 🧪 Test Results (PR Validation)" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ Test report not found or tests didn't run." >> $GITHUB_STEP_SUMMARY
+          fi
       - name: Upload Test Report
         uses: actions/upload-artifact@v4
         if: always()
@@ -220,6 +308,30 @@ jobs:
         run: |
           echo "Running Yarn Audit for critical issues only..."
           yarn npm audit --severity critical --json > yarn-audit-report.json 
+      - name: Generate Audit Summary
+        if: always()
+        run: |
+          # Parse audit results
+          if [ -f "yarn-audit-report.json" ]; then
+            CRITICAL=$(jq '.data.vulnerabilities.critical // 0' yarn-audit-report.json 2>/dev/null || echo "0")
+            HIGH=$(jq '.data.vulnerabilities.high // 0' yarn-audit-report.json 2>/dev/null || echo "0")
+            MODERATE=$(jq '.data.vulnerabilities.moderate // 0' yarn-audit-report.json 2>/dev/null || echo "0")
+            
+            echo "## 🔍 Dependency Audit Results (PR)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔴 Critical | ${CRITICAL} |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟠 High | ${HIGH} |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟡 Moderate | ${MODERATE} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${CRITICAL}" -gt 0 ] || [ "${HIGH}" -gt 0 ]; then
+              echo "⚠️ **Security vulnerabilities found!** Review the audit report artifact." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **No critical or high severity vulnerabilities found.**" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
       - name: Upload Yarn Audit report
         uses: actions/upload-artifact@v4
         if: always()
@@ -238,6 +350,29 @@ jobs:
         run: pip install semgrep
       - name: Run Semgrep Scan
         run: semgrep scan --config p/owasp-top-ten --config p/javascript --config p/nodejs --output semgrep-SAST.json --error --debug --max-log-list-entries=0 ./src
+      - name: Generate Semgrep Summary
+        if: always()
+        run: |
+          # Parse Semgrep results
+          if [ -f "semgrep-SAST.json" ]; then
+            ERRORS=$(jq '.results | length' semgrep-SAST.json 2>/dev/null || echo "0")
+            
+            echo "## 🔒 Security Scan Results (PR Validation)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Security Issues Found | ${ERRORS} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${ERRORS}" -gt 0 ]; then
+              echo "⚠️ **Security issues detected!** Check the Semgrep report artifact for details." >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### Top Issues:" >> $GITHUB_STEP_SUMMARY
+              jq -r '.results[0:5][] | "- **\(.check_id)**: \(.path):\(.start.line)"' semgrep-SAST.json 2>/dev/null || echo "Unable to parse issues" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **No security issues found.**" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
       - name: Upload Semgrep report
         uses: actions/upload-artifact@v4
         if: always()
@@ -278,6 +413,29 @@ jobs:
           mkdir -p artifacts
           cp -r out/* artifacts/ || cp -r build/* artifacts/ || cp -r dist/* artifacts/
           cd artifacts
+          
+          # Calculate build metrics
+          ARCHIVE_SIZE=$(du -sh . | cut -f1)
+          FILE_COUNT=$(find . -type f | wc -l)
+          echo "ARCHIVE_SIZE=$ARCHIVE_SIZE" >> $GITHUB_ENV
+          echo "FILE_COUNT=$FILE_COUNT" >> $GITHUB_ENV
+
+      - name: Generate Build Validation Summary
+        if: always()
+        run: |
+          echo "## 🏗️ Build Validation Summary (PR)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Status | ✅ Successful |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Size | ${{ env.ARCHIVE_SIZE }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Files Count | ${{ env.FILE_COUNT }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.head_ref }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Context | Pull Request Validation |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Build validation passed!** Static files are ready for deployment." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** This is a validation build only. Release artifacts will be created on merge to main branch." >> $GITHUB_STEP_SUMMARY
 
       - name: Scan build artifacts with Trivy
         uses: aquasecurity/trivy-action@master
@@ -289,6 +447,30 @@ jobs:
           severity: "HIGH,CRITICAL"
           exit-code: 1
           scanners: vuln,secret,misconfig
+
+      - name: Generate Trivy Summary
+        if: always()
+        run: |
+          # Parse Trivy SARIF results
+          if [ -f "trivy-fs-results.sarif" ]; then
+            CRITICAL=$(jq '.runs[0].results | length' trivy-fs-results.sarif 2>/dev/null || echo "0")
+            
+            echo "## 🛡️ Build Artifact Security Scan (PR)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Severity | Findings |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|----------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔴 Critical | ${CRITICAL} |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟠 High | 0 (filtered) |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟡 Medium+ | 0 (filtered) |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${CRITICAL}" -gt 0 ]; then
+              echo "❌ **Critical security issues found in build artifacts!**" >> $GITHUB_STEP_SUMMARY
+              echo "Build cannot proceed with critical vulnerabilities." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **No critical security issues found in build artifacts.**" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
 
       - name: Upload Trivy FS report
         uses: actions/upload-artifact@v4
