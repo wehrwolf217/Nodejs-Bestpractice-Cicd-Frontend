@@ -56,7 +56,6 @@ const RAW_RUNTIME_STATE =
           ["identity-obj-proxy", "npm:3.0.0"],\
           ["jest", "virtual:dbf30084d1e7c10f19554f8a3411b9461705fe0e3f359ce6b2d6669fbb10b874ab7795fa40de723823831cf2121bbd52b46f93a5a51722e61b929c8dea998631#npm:30.1.3"],\
           ["jest-environment-jsdom", "virtual:dbf30084d1e7c10f19554f8a3411b9461705fe0e3f359ce6b2d6669fbb10b874ab7795fa40de723823831cf2121bbd52b46f93a5a51722e61b929c8dea998631#npm:30.1.2"],\
-          ["minimist", "npm:1.2.0"],\
           ["next", "virtual:dbf30084d1e7c10f19554f8a3411b9461705fe0e3f359ce6b2d6669fbb10b874ab7795fa40de723823831cf2121bbd52b46f93a5a51722e61b929c8dea998631#npm:15.5.3"],\
           ["prettier", "npm:3.6.2"],\
           ["project_name", "workspace:."],\
@@ -9277,13 +9276,6 @@ const RAW_RUNTIME_STATE =
       }]\
     ]],\
     ["minimist", [\
-      ["npm:1.2.0", {\
-        "packageLocation": "./.yarn/cache/minimist-npm-1.2.0-214f53c090-0c9e882a4d.zip/node_modules/minimist/",\
-        "packageDependencies": [\
-          ["minimist", "npm:1.2.0"]\
-        ],\
-        "linkType": "HARD"\
-      }],\
       ["npm:1.2.8", {\
         "packageLocation": "./.yarn/cache/minimist-npm-1.2.8-d7af7b1dce-19d3fcdca0.zip/node_modules/minimist/",\
         "packageDependencies": [\
@@ -10005,7 +9997,6 @@ const RAW_RUNTIME_STATE =
           ["identity-obj-proxy", "npm:3.0.0"],\
           ["jest", "virtual:dbf30084d1e7c10f19554f8a3411b9461705fe0e3f359ce6b2d6669fbb10b874ab7795fa40de723823831cf2121bbd52b46f93a5a51722e61b929c8dea998631#npm:30.1.3"],\
           ["jest-environment-jsdom", "virtual:dbf30084d1e7c10f19554f8a3411b9461705fe0e3f359ce6b2d6669fbb10b874ab7795fa40de723823831cf2121bbd52b46f93a5a51722e61b929c8dea998631#npm:30.1.2"],\
-          ["minimist", "npm:1.2.0"],\
           ["next", "virtual:dbf30084d1e7c10f19554f8a3411b9461705fe0e3f359ce6b2d6669fbb10b874ab7795fa40de723823831cf2121bbd52b46f93a5a51722e61b929c8dea998631#npm:15.5.3"],\
           ["prettier", "npm:3.6.2"],\
           ["project_name", "workspace:."],\
