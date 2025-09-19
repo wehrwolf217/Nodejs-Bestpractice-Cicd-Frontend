@@ -189,7 +189,7 @@ jobs:
 
   build_and_upload_frontend:
     runs-on: ubuntu-latest
-    needs: [semgrep_scan, gitleaks_scan, yarn_audit, tag_release]
+    needs: [semgrep_scan, gitleaks_scan, yarn_audit, tag_release, extract_version]
     env:
       VERSION: ${{ needs.extract_version.outputs.version }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -234,22 +234,14 @@ jobs:
           cd artifacts
           tar -czf ${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz *
 
+      - name: Setup GitHub CLI
+        uses: actions/setup-gh@v1
+
       - name: Create release
         if: env.VERSION != '0.0.0'
-        id: create_release
-        uses: actions/create-release@v1
-        with:
-          tag_name: v${{ env.VERSION }}
-          release_name: Release v${{ env.VERSION }}
-          body: Automatic release for version ${{ env.VERSION }}
-          draft: false
-          prerelease: false
-
+        run: gh release create v${{ env.VERSION }} --title "Release v${{ env.VERSION }}" --notes "Automatic release for version ${{ env.VERSION }}" --generate-notes # --draft --prerelease if needed
+      
       - name: Upload release asset
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz
-          asset_name: ${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz
-          asset_content_type: application/gzip
+        if: env.VERSION != '0.0.0'
+        run: gh release upload v${{ env.VERSION }} artifacts/${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz
         
