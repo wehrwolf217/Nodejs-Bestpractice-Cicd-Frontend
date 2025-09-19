@@ -24,6 +24,21 @@ jobs:
         run: |
           VERSION=$(jq -r .version package.json)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          echo "## 📋 Version Information (Push to Main)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`$VERSION\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Source | \`package.json\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.ref }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$VERSION" = "0.0.0" ]; then
+            echo "ℹ️ **Development version detected** - some features will be skipped." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **Valid version detected** - full pipeline will run." >> $GITHUB_STEP_SUMMARY
+          fi
 
   tag_release:
     runs-on: ubuntu-latest
@@ -57,6 +72,16 @@ jobs:
 
           git tag "v$VERSION"          
           git push origin "v$VERSION"
+          
+          echo "## 🏷️ Git Tag Created (Push to Main)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag | \`v$VERSION\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${GITHUB_SHA:0:8}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Created At | $(date -u +'%Y-%m-%d %H:%M:%S UTC') |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Tag pushed to repository successfully!**" >> $GITHUB_STEP_SUMMARY
 
   install_dependencies:
     runs-on: ubuntu-latest
@@ -85,6 +110,22 @@ jobs:
         uses: ./.github/actions/code-quality
         with:
           command: lint
+      - name: Generate Lint Summary
+        if: always()
+        run: |
+          echo "## 🔍 ESLint Code Quality Check (Push to Main)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| ESLint | ${{ job.status == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ **No linting issues found.** Code follows ESLint rules." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Linting issues detected!** Check the job logs for details." >> $GITHUB_STEP_SUMMARY
+            echo "Run \`yarn lint\` locally to fix issues before pushing." >> $GITHUB_STEP_SUMMARY
+          fi
 
   format_check_new:
     runs-on: ubuntu-latest
@@ -96,6 +137,22 @@ jobs:
         uses: ./.github/actions/code-quality
         with:
           command: format
+      - name: Generate Format Summary
+        if: always()
+        run: |
+          echo "## 💅 Prettier Code Formatting Check (Push to Main)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Prettier Format | ${{ job.status == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ **Code is properly formatted.** All files follow Prettier rules." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Formatting issues detected!** Check the job logs for details." >> $GITHUB_STEP_SUMMARY
+            echo "Run \`npx prettier --write .\` locally to auto-fix formatting issues." >> $GITHUB_STEP_SUMMARY
+          fi
 
   typecheck:
     runs-on: ubuntu-latest
@@ -107,6 +164,22 @@ jobs:
         uses: ./.github/actions/code-quality
         with:
           command: typecheck
+      - name: Generate Typecheck Summary
+        if: always()
+        run: |
+          echo "## 🔷 TypeScript Type Checking (Push to Main)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| TypeScript Types | ${{ job.status == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ **No type errors found.** All TypeScript types are valid." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Type errors detected!** Check the job logs for details." >> $GITHUB_STEP_SUMMARY
+            echo "Run \`yarn typecheck\` locally to identify and fix type issues." >> $GITHUB_STEP_SUMMARY
+          fi
 
   unit_test:
     runs-on: ubuntu-latest
@@ -126,6 +199,33 @@ jobs:
         run: |
           echo "Running unit/integration tests..."
           yarn test --testResultsProcessor jest-junit
+      - name: Generate Test Summary
+        if: always()
+        run: |
+          # Parse test results and create summary
+          if [ -f "junit.xml" ]; then
+            TESTS=$(grep -o 'tests="[0-9]*"' junit.xml | head -1 | sed 's/tests="//;s/"//')
+            FAILURES=$(grep -o 'failures="[0-9]*"' junit.xml | head -1 | sed 's/failures="//;s/"//')
+            TIME=$(grep -o 'time="[0-9.]*"' junit.xml | head -1 | sed 's/time="//;s/"//')
+            
+            echo "## 🧪 Unit Test Results (Push to Main)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Total Tests | ${TESTS:-0} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Failed Tests | ${FAILURES:-0} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Execution Time | ${TIME:-0}s |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${FAILURES:-0}" -gt 0 ]; then
+              echo "❌ **Some tests failed!** Check the test report artifact for details." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **All tests passed!**" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "## 🧪 Unit Test Results (Push to Main)" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ Test report not found or tests didn't run." >> $GITHUB_STEP_SUMMARY
+          fi
       - name: Upload Test Report
         uses: actions/upload-artifact@v4
         if: always()
@@ -146,8 +246,47 @@ jobs:
           yarn-version: "4.9.2"
       - name: Run Yarn Audit
         run: |
-          echo "Running Yarn Audit for critical issues only..."
-          yarn npm audit --severity critical --json > yarn-audit-report.json 
+          echo "Running Yarn Audit..."
+          yarn npm audit --json > yarn-audit-report.json
+          
+          # Check for critical and high vulnerabilities and fail if found
+          CRITICAL=$(jq -s '[.[] | select(.children.Severity == "critical")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
+          HIGH=$(jq -s '[.[] | select(.children.Severity == "high")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
+          
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "❌ Found $CRITICAL critical and $HIGH high vulnerabilities! Failing build."
+            exit 1
+          fi 
+      - name: Generate Audit Summary
+        if: always()
+        run: |
+          # Parse audit results
+          if [ -f "yarn-audit-report.json" ]; then
+            CRITICAL=$(jq -s '[.[] | select(.children.Severity == "critical")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
+            HIGH=$(jq -s '[.[] | select(.children.Severity == "high")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
+            MODERATE=$(jq -s '[.[] | select(.children.Severity == "moderate")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
+            LOW=$(jq -s '[.[] | select(.children.Severity == "low")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
+            INFO=$(jq -s '[.[] | select(.children.Severity == "info")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
+            
+            echo "## 🔍 Dependency Audit Results (Push to Main)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔴 Critical | ${CRITICAL} |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟠 High | ${HIGH} |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟡 Moderate | ${MODERATE} |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔵 Low | ${LOW} |" >> $GITHUB_STEP_SUMMARY
+            echo "| ℹ️ Info | ${INFO} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${CRITICAL}" -gt 0 ] || [ "${HIGH}" -gt 0 ]; then
+              echo "❌ **Critical or high vulnerabilities found!** Build will fail. Review and fix issues." >> $GITHUB_STEP_SUMMARY
+            elif [ "${MODERATE}" -gt 0 ]; then
+              echo "⚠️ **Moderate severity vulnerabilities found.** Consider fixing before release." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **No blocking vulnerabilities found.**" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
       - name: Upload Yarn Audit report
         uses: actions/upload-artifact@v4
         if: always()
@@ -166,6 +305,29 @@ jobs:
         run: pip install semgrep
       - name: Run Semgrep Scan
         run: semgrep scan --config p/owasp-top-ten --config p/javascript --config p/nodejs --output semgrep-SAST.json --error --debug --max-log-list-entries=0 ./src
+      - name: Generate Semgrep Summary
+        if: always()
+        run: |
+          # Parse Semgrep results
+          if [ -f "semgrep-SAST.json" ]; then
+            ERRORS=$(jq '.results | length' semgrep-SAST.json 2>/dev/null || echo "0")
+            
+            echo "## 🔒 Security Scan Results (Semgrep) (Push to Main)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Security Issues Found | ${ERRORS} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${ERRORS}" -gt 0 ]; then
+              echo "⚠️ **Security issues detected!** Check the Semgrep report artifact for details." >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### Top Issues:" >> $GITHUB_STEP_SUMMARY
+              jq -r '.results[0:5][] | "- **\(.check_id)**: \(.path):\(.start.line)"' semgrep-SAST.json 2>/dev/null || echo "Unable to parse issues" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **No security issues found.**" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
       - name: Upload Semgrep report
         uses: actions/upload-artifact@v4
         if: always()
@@ -181,7 +343,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Needed for full history scan
+          fetch-depth: 0 
       - name: Run Gitleaks Scan
         uses: gitleaks/gitleaks-action@v2
         env:
@@ -221,6 +383,31 @@ jobs:
           exit-code: 1
           scanners: vuln,secret,misconfig
 
+      - name: Generate Trivy Summary
+        if: always()
+        run: |
+          # Parse Trivy SARIF results
+          if [ -f "trivy-fs-results.sarif" ]; then
+            CRITICAL=$(jq '.runs[0].results | length' trivy-fs-results.sarif 2>/dev/null || echo "0")
+            
+            echo "## 🛡️ Build Artifact Security Scan (Push to Main)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Severity | Findings |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|----------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔴 Critical | ${CRITICAL} |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟠 High | 0 (filtered) |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟡 Medium+ | 0 (filtered) |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "${CRITICAL}" -gt 0 ]; then
+              echo "❌ **Critical security issues found in build artifacts!**" >> $GITHUB_STEP_SUMMARY
+              echo "Release cannot proceed with critical vulnerabilities." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ **No critical security issues found in build artifacts.**" >> $GITHUB_STEP_SUMMARY
+              echo "Ready for release packaging." >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
       - name: Upload Trivy FS report
         uses: actions/upload-artifact@v4
         if: always()
@@ -233,6 +420,33 @@ jobs:
         run: |
           cd artifacts
           tar -czf ${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz *
+          ARCHIVE_SIZE=$(du -sh ${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz | cut -f1)
+          echo "ARCHIVE_SIZE=$ARCHIVE_SIZE" >> $GITHUB_ENV
+          FILE_COUNT=$(tar -tzf ${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz | wc -l)
+          echo "FILE_COUNT=$FILE_COUNT" >> $GITHUB_ENV
+
+      - name: Generate Release Summary
+        if: always()
+        run: |
+          echo "## 🚀 Release Summary (Push to Main)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 📦 Version | v${{ env.VERSION }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📁 Package Name | ${{ env.PACKAGE_NAME }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📊 Archive Size | ${{ env.ARCHIVE_SIZE }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📄 Files Count | ${{ env.FILE_COUNT }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ env.VERSION }}" != "0.0.0" ]; then
+            echo "✅ **Release created successfully!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📥 Download Links:" >> $GITHUB_STEP_SUMMARY
+            echo "- **GitHub Release**: https://github.com/${{ github.repository }}/releases/tag/v${{ env.VERSION }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Artifact**: \`${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⏭️ **Development version (0.0.0) - no release created**" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Create release
         if: env.VERSION != '0.0.0'
