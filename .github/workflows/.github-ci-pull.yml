@@ -4,9 +4,6 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write # For pushing tags
-
 env:
   PACKAGE_NAME: "frontend"
 
@@ -143,7 +140,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Setup Node with Yarn
-        uses: ./.github/actions/setup-node # Calls the composite action for Node + Yarn + cache
+        uses: ./.github/actions/setup-node 
         with:
           yarn-version: "4.9.2"
       - name: Install dependencies
