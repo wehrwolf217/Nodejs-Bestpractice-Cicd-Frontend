@@ -227,6 +227,7 @@ jobs:
             echo "⚠️ Test report not found or tests didn't run." >> $GITHUB_STEP_SUMMARY
           fi
       - name: Upload Test Report
+        id: upload-test-report
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -237,7 +238,7 @@ jobs:
         if: always()
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📎 **Artifacts**: [View Test Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [Download Test Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-test-report.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
 
   yarn_audit:
     runs-on: ubuntu-latest
@@ -293,6 +294,7 @@ jobs:
             fi
           fi
       - name: Upload Yarn Audit report
+        id: upload-yarn-audit
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -303,7 +305,7 @@ jobs:
         if: always()
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📎 **Artifacts**: [View Audit Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [Download Audit Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-yarn-audit.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
 
   semgrep_scan:
     runs-on: ubuntu-latest
@@ -339,6 +341,7 @@ jobs:
             fi
           fi
       - name: Upload Semgrep report
+        id: upload-semgrep
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -349,7 +352,7 @@ jobs:
         if: always()
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📎 **Artifacts**: [View Semgrep Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [Download Semgrep Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-semgrep.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
 
   gitleaks_scan:
     runs-on: ubuntu-latest
@@ -363,11 +366,16 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get Gitleaks Artifact ID
+        id: get-gitleaks-id
+        run: |
+          ARTIFACT_ID=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts | jq -r '.artifacts[] | select(.name == "gitleaks-results.sarif") | .id')
+          echo "artifact-id=$ARTIFACT_ID" >> $GITHUB_OUTPUT
       - name: Add Artifact Link to Summary
         if: always()
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📎 **Artifacts**: [View Gitleaks Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [Download Gitleaks Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.get-gitleaks-id.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
 
   build_scan_and_upload_frontend:
     runs-on: ubuntu-latest
@@ -434,12 +442,18 @@ jobs:
           echo "📎 **Artifacts**: [View Trivy Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Trivy FS report
+        id: upload-trivy
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: trivy-fs-report
           path: trivy-fs-results.sarif
           retention-days: 2
+      - name: Add Artifact Link to Summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [Download Trivy Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-trivy.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
 
       - name: Create archive
         run: |
@@ -450,6 +464,7 @@ jobs:
           FILE_COUNT=$(tar -tzf ${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz | wc -l)
           echo "FILE_COUNT=$FILE_COUNT" >> $GITHUB_ENV
       - name: Upload Build Artifact
+        id: upload-build
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PACKAGE_NAME }}-build-${{ env.VERSION }}
@@ -474,7 +489,7 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 📥 Download Links:" >> $GITHUB_STEP_SUMMARY
             echo "- **GitHub Release**: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ env.VERSION }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Artifact**: \`${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Artifact**: [Download Build Archive](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-build.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
             echo "- **Artifacts Page**: [View All Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
           else
             echo "⏭️ **Development version (0.0.0) - no release created**" >> $GITHUB_STEP_SUMMARY

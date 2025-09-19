@@ -335,6 +335,7 @@ jobs:
             echo "⚠️ Test report not found or tests didn't run." >> $GITHUB_STEP_SUMMARY
           fi
       - name: Upload Test Report
+        id: upload-test-report
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -345,7 +346,7 @@ jobs:
         if: always()
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📎 **Artifacts**: [View Test Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [Download Test Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-test-report.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
 
   yarn_audit:
     runs-on: ubuntu-latest
@@ -401,6 +402,7 @@ jobs:
             fi
           fi
       - name: Upload Yarn Audit report
+        id: upload-yarn-audit
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -411,7 +413,7 @@ jobs:
         if: always()
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📎 **Artifacts**: [View Audit Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [Download Audit Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-yarn-audit.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
 
   semgrep_scan:
     runs-on: ubuntu-latest
@@ -447,6 +449,7 @@ jobs:
             fi
           fi
       - name: Upload Semgrep report
+        id: upload-semgrep
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -457,7 +460,7 @@ jobs:
         if: always()
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📎 **Artifacts**: [View Semgrep Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [Download Semgrep Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-semgrep.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
 
   gitleaks_scan:
     runs-on: ubuntu-latest
@@ -471,11 +474,16 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get Gitleaks Artifact ID
+        id: get-gitleaks-id
+        run: |
+          ARTIFACT_ID=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts | jq -r '.artifacts[] | select(.name == "gitleaks-results.sarif") | .id')
+          echo "artifact-id=$ARTIFACT_ID" >> $GITHUB_OUTPUT
       - name: Add Artifact Link to Summary
         if: always()
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📎 **Artifacts**: [View Gitleaks Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [Download Gitleaks Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.get-gitleaks-id.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
 
   build_and_scan:
     runs-on: ubuntu-latest
@@ -556,12 +564,18 @@ jobs:
           fi
 
       - name: Upload Trivy FS report
+        id: upload-trivy
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: trivy-fs-report
           path: trivy-fs-results.sarif
           retention-days: 2
+      - name: Add Artifact Link to Summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [Download Trivy Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-trivy.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
       - name: Add Artifact Link to Summary
         if: always()
         run: |
