@@ -465,6 +465,8 @@ jobs:
   gitleaks_scan:
     runs-on: ubuntu-latest
     needs: [unit_test]
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -576,8 +578,4 @@ jobs:
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📎 **Artifacts**: [Download Trivy Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-trivy.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
-      - name: Add Artifact Link to Summary
-        if: always()
-        run: |
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📎 **Artifacts**: [View Trivy Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
+      

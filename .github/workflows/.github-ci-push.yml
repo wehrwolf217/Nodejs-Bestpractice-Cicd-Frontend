@@ -357,6 +357,8 @@ jobs:
   gitleaks_scan:
     runs-on: ubuntu-latest
     needs: [unit_test]
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -490,7 +492,6 @@ jobs:
             echo "### 📥 Download Links:" >> $GITHUB_STEP_SUMMARY
             echo "- **GitHub Release**: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ env.VERSION }}" >> $GITHUB_STEP_SUMMARY
             echo "- **Artifact**: [Download Build Archive](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload-build.outputs.artifact-id }})" >> $GITHUB_STEP_SUMMARY
-            echo "- **Artifacts Page**: [View All Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
           else
             echo "⏭️ **Development version (0.0.0) - no release created**" >> $GITHUB_STEP_SUMMARY
           fi
