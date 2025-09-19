@@ -223,14 +223,14 @@ jobs:
       - name: Install Semgrep
         run: pip install semgrep
       - name: Run Semgrep Scan
-        run: semgrep scan --config p/owasp-top-ten --config p/javascript --config p/nodejs --output semgrep-SAST.json --error --debug --max-log-list-entries=0 ./src
+        run: semgrep scan --config p/owasp-top-ten --config p/javascript --config p/nodejs --output semgrep-SAST.sarif --sarif --error --debug ./src
       - name: Upload Semgrep report
         id: upload-semgrep
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: semgrep-report
-          path: semgrep-SAST.json
+          path: semgrep-SAST.sarif
           retention-days: 2
 
   gitleaks_scan:
