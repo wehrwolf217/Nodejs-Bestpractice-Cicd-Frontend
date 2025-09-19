@@ -233,6 +233,11 @@ jobs:
           name: unit-test-report
           path: junit.xml
           retention-days: 2
+      - name: Add Artifact Link to Summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [View Test Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
 
   yarn_audit:
     runs-on: ubuntu-latest
@@ -294,6 +299,11 @@ jobs:
           name: yarn-audit-report
           path: yarn-audit-report.json
           retention-days: 2
+      - name: Add Artifact Link to Summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [View Audit Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
 
   semgrep_scan:
     runs-on: ubuntu-latest
@@ -335,6 +345,11 @@ jobs:
           name: semgrep-report
           path: semgrep-SAST.json
           retention-days: 2
+      - name: Add Artifact Link to Summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [View Semgrep Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
 
   gitleaks_scan:
     runs-on: ubuntu-latest
@@ -348,6 +363,11 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add Artifact Link to Summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [View Gitleaks Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
 
   build_scan_and_upload_frontend:
     runs-on: ubuntu-latest
@@ -407,6 +427,11 @@ jobs:
               echo "Ready for release packaging." >> $GITHUB_STEP_SUMMARY
             fi
           fi
+      - name: Add Artifact Link to Summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📎 **Artifacts**: [View Trivy Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Trivy FS report
         uses: actions/upload-artifact@v4
@@ -424,6 +449,12 @@ jobs:
           echo "ARCHIVE_SIZE=$ARCHIVE_SIZE" >> $GITHUB_ENV
           FILE_COUNT=$(tar -tzf ${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz | wc -l)
           echo "FILE_COUNT=$FILE_COUNT" >> $GITHUB_ENV
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}-build-${{ env.VERSION }}
+          path: artifacts/${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz
+          retention-days: 2
 
       - name: Generate Release Summary
         if: always()
@@ -442,8 +473,9 @@ jobs:
             echo "✅ **Release created successfully!**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 📥 Download Links:" >> $GITHUB_STEP_SUMMARY
-            echo "- **GitHub Release**: https://github.com/${{ github.repository }}/releases/tag/v${{ env.VERSION }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **GitHub Release**: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ env.VERSION }}" >> $GITHUB_STEP_SUMMARY
             echo "- **Artifact**: \`${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.tar.gz\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Artifacts Page**: [View All Artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)" >> $GITHUB_STEP_SUMMARY
           else
             echo "⏭️ **Development version (0.0.0) - no release created**" >> $GITHUB_STEP_SUMMARY
           fi
