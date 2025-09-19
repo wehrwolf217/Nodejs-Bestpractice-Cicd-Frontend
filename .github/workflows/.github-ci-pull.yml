@@ -18,7 +18,7 @@ jobs:
           if [[ "$BRANCH_NAME" =~ ^(feature|fix)/[A-Za-z0-9._-]+$ ]]; then
             echo "✔ Branch name valid"
             
-            echo "## ✅ Branch Name Validation" >> $GITHUB_STEP_SUMMARY
+            echo "## ✅ Branch Name Validation (Pull Request)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
             echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -54,7 +54,7 @@ jobs:
         env:
           BRANCH_NAME: ${{ github.head_ref }}
         run: |
-          echo "## 🔄 Version Bump Validation" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔄 Version Bump Validation (Pull Request)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           git fetch origin main
@@ -175,7 +175,7 @@ jobs:
           VERSION=$(jq -r .version package.json)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           
-          echo "## 📋 Version Information (PR)" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Version Information (Pull Request)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -221,7 +221,7 @@ jobs:
       - name: Generate Lint Summary
         if: always()
         run: |
-          echo "## 🔍 ESLint Code Quality Check (PR)" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 ESLint Code Quality Check (Pull Request)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
@@ -248,7 +248,7 @@ jobs:
       - name: Generate Format Summary
         if: always()
         run: |
-          echo "## 💅 Prettier Code Formatting Check (PR)" >> $GITHUB_STEP_SUMMARY
+          echo "## 💅 Prettier Code Formatting Check (Pull Request)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
@@ -275,7 +275,7 @@ jobs:
       - name: Generate Typecheck Summary
         if: always()
         run: |
-          echo "## 🔷 TypeScript Type Checking (PR)" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔷 TypeScript Type Checking (Pull Request)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
@@ -316,7 +316,7 @@ jobs:
             FAILURES=$(grep -o 'failures="[0-9]*"' junit.xml | head -1 | sed 's/failures="//;s/"//')
             TIME=$(grep -o 'time="[0-9.]*"' junit.xml | head -1 | sed 's/time="//;s/"//')
             
-            echo "## 🧪 Unit Test Results" >> $GITHUB_STEP_SUMMARY
+            echo "## 🧪 Unit Test Results (Pull Request)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -331,7 +331,7 @@ jobs:
               echo "✅ **All tests passed!**" >> $GITHUB_STEP_SUMMARY
             fi
           else
-            echo "## 🧪 Unit Test Results" >> $GITHUB_STEP_SUMMARY
+            echo "## 🧪 Unit Test Results (Pull Request)" >> $GITHUB_STEP_SUMMARY
             echo "⚠️ Test report not found or tests didn't run." >> $GITHUB_STEP_SUMMARY
           fi
       - name: Upload Test Report
@@ -358,8 +358,8 @@ jobs:
           yarn npm audit --json > yarn-audit-report.json
           
           # Check for critical and high vulnerabilities and fail if found
-          CRITICAL=$(jq '.data.vulnerabilities.critical // 0' yarn-audit-report.json 2>/dev/null || echo "0")
-          HIGH=$(jq '.data.vulnerabilities.high // 0' yarn-audit-report.json 2>/dev/null || echo "0")
+          CRITICAL=$(jq -s '[.[] | select(.children.Severity == "critical")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
+          HIGH=$(jq -s '[.[] | select(.children.Severity == "high")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
           
           if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
             echo "❌ Found $CRITICAL critical and $HIGH high vulnerabilities! Failing build."
@@ -370,13 +370,13 @@ jobs:
         run: |
           # Parse audit results
           if [ -f "yarn-audit-report.json" ]; then
-            CRITICAL=$(jq '.data.vulnerabilities.critical // 0' yarn-audit-report.json 2>/dev/null || echo "0")
-            HIGH=$(jq '.data.vulnerabilities.high // 0' yarn-audit-report.json 2>/dev/null || echo "0")
-            MODERATE=$(jq '.data.vulnerabilities.moderate // 0' yarn-audit-report.json 2>/dev/null || echo "0")
-            LOW=$(jq '.data.vulnerabilities.low // 0' yarn-audit-report.json 2>/dev/null || echo "0")
-            INFO=$(jq '.data.vulnerabilities.info // 0' yarn-audit-report.json 2>/dev/null || echo "0")
+            CRITICAL=$(jq -s '[.[] | select(.children.Severity == "critical")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
+            HIGH=$(jq -s '[.[] | select(.children.Severity == "high")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
+            MODERATE=$(jq -s '[.[] | select(.children.Severity == "moderate")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
+            LOW=$(jq -s '[.[] | select(.children.Severity == "low")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
+            INFO=$(jq -s '[.[] | select(.children.Severity == "info")] | length' yarn-audit-report.json 2>/dev/null || echo "0")
             
-            echo "## 🔍 Dependency Audit Results (PR)" >> $GITHUB_STEP_SUMMARY
+            echo "## 🔍 Dependency Audit Results (Pull Request)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
             echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -420,7 +420,7 @@ jobs:
           if [ -f "semgrep-SAST.json" ]; then
             ERRORS=$(jq '.results | length' semgrep-SAST.json 2>/dev/null || echo "0")
             
-            echo "## 🔒 Security Scan Results" >> $GITHUB_STEP_SUMMARY
+            echo "## 🔒 Security Scan Results (Pull Request)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -486,7 +486,7 @@ jobs:
       - name: Generate Build Validation Summary
         if: always()
         run: |
-          echo "## 🏗️ Build Validation Summary (PR)" >> $GITHUB_STEP_SUMMARY
+          echo "## 🏗️ Build Validation Summary (Pull Request)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -518,7 +518,7 @@ jobs:
           if [ -f "trivy-fs-results.sarif" ]; then
             CRITICAL=$(jq '.runs[0].results | length' trivy-fs-results.sarif 2>/dev/null || echo "0")
             
-            echo "## 🛡️ Trivy Sec Audit Results" >> $GITHUB_STEP_SUMMARY
+            echo "## 🛡️ Trivy Sec Audit Results (Pull Request)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "| Severity | Findings |" >> $GITHUB_STEP_SUMMARY
             echo "|----------|----------|" >> $GITHUB_STEP_SUMMARY
