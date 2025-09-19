@@ -37,7 +37,7 @@ jobs:
           if [ "$VERSION" = "0.0.0" ]; then
             echo "ℹ️ **Development version detected** - some features will be skipped." >> $GITHUB_STEP_SUMMARY
           else
-            echo "✅ **Production version detected** - full pipeline will run." >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Valid version detected** - full pipeline will run." >> $GITHUB_STEP_SUMMARY
           fi
 
   tag_release:
@@ -151,7 +151,7 @@ jobs:
             echo "✅ **Code is properly formatted.** All files follow Prettier rules." >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ **Formatting issues detected!** Check the job logs for details." >> $GITHUB_STEP_SUMMARY
-            echo "Run \`yarn format\` locally to auto-fix formatting issues." >> $GITHUB_STEP_SUMMARY
+            echo "Run \`npx prettier --write .\` locally to auto-fix formatting issues." >> $GITHUB_STEP_SUMMARY
           fi
 
   typecheck:
