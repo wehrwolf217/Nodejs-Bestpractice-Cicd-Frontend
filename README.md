@@ -227,8 +227,8 @@ graph TB
             BS3[gitleaks_scan]
         end
         
-        B6[validate_build]
-        B7[📝 Build validated but NO release created]
+        B6[build_and_scan]
+        B7[📝 Build and scan with trivy but NO release created]
         
         B1 --> B4
         B4 --> B2
@@ -259,8 +259,8 @@ graph TB
             DS3[gitleaks_scan]
         end
         
-        D7[build_and_upload_frontend]
-        D8[📝 Static assets built & GitHub release created]
+        D7[build_scan_and_upload_frontend]
+        D8[📝 Static assets built, scan with trivy & GitHub release created with asset]
         
         D1 --> D2
         D2 --> D3
@@ -276,7 +276,7 @@ graph TB
     classDef securityStyle fill:#ffebee,stroke:#f44336,stroke-width:2px
     classDef pipelineStyle fill:#e3f2fd,stroke:#2196f3,stroke-width:2px
     
-    class B1,D1,D2 validationStyle
+    class B1 validationStyle
     class B2,D4 qualityStyle
     class B3,D6 securityStyle
     class B,D pipelineStyle
