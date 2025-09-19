@@ -12,18 +12,19 @@
 
 - [🔧 Prerequisites](#-prerequisites)
 - [🚀 Getting Started](#-getting-started)
-- [⚙️ Configuration](#-configuration)
+- [⚙️ Configuration](#️-configuration)
 - [✅ Next Steps](#-next-steps)
-- [🏗️ Pipeline Architecture](#-pipeline-architecture)
+- [🏗️ Pipeline Architecture](#️-pipeline-architecture)
 - [🔄 Pipeline Workflows](#-pipeline-workflows)
 - [📊 Generated Reports and Artifacts](#-generated-reports-and-artifacts)
+- [📦 Release Assets (Main Branch Only)](#-release-assets-main-branch-only)
 - [🌿 Branch Strategy](#-branch-strategy)
 - [📦 Versioning Strategy](#-versioning-strategy)
 - [🆘 Troubleshooting](#-troubleshooting)
 - [✨ Features](#-features)
 - [🔒 Security Features](#-security-features)
 - [📁 Project Structure](#-project-structure)
-- [🏷️ Environment Variables](#-environment-variables)
+- [🏷️ Environment Variables](#️-environment-variables)
 - [🔧 Custom Actions](#-custom-actions)
 - [📚 Best Practices Implemented](#-best-practices-implemented)
 
@@ -198,23 +199,43 @@ The CI/CD pipeline is split into **two separate workflows** for optimal performa
 ### 🔄 Pipeline Flow Overview
 
 ```mermaid
-graph TB
+graph TD
     subgraph PR["🔍 Pull Request Workflow (.github-ci-pull.yml)"]
-        PR1[validate_branch_name] --> PR2[validate_version_bump]
-        PR2 --> PR3[install_dependencies]
-        PR3 --> PR4[lint & format_check_new & typecheck]
-        PR4 --> PR5[unit_test]
-        PR5 --> PR6[yarn_audit & semgrep_scan & gitleaks_scan]
-        PR6 --> PR7[validate_build]
+        PR1[validate_branch_name] 
+        PR2[validate_version_bump]
+        PR1 --> PR3[install_dependencies]
+        PR2 --> PR3
+        PR3 --> PR4A[lint]
+        PR3 --> PR4B[format_check_new]
+        PR3 --> PR4C[typecheck]
+        PR4A --> PR5[unit_test]
+        PR4B --> PR5
+        PR4C --> PR5
+        PR5 --> PR6A[yarn_audit]
+        PR5 --> PR6B[semgrep_scan]
+        PR5 --> PR6C[gitleaks_scan]
+        PR6A --> PR7[validate_build]
+        PR6B --> PR7
+        PR6C --> PR7
     end
 
     subgraph PUSH["🚀 Main Branch Workflow (.github-ci-push.yml)"]
-        PUSH1[extract_version] --> PUSH2[tag_release]
+        PUSH1[extract_version] 
+        PUSH1 --> PUSH2[tag_release]
         PUSH2 --> PUSH3[install_dependencies]
-        PUSH3 --> PUSH4[lint & format_check_new & typecheck]
-        PUSH4 --> PUSH5[unit_test]
-        PUSH5 --> PUSH6[yarn_audit & semgrep_scan & gitleaks_scan]
-        PUSH6 --> PUSH7[build_and_upload_frontend]
+        PUSH3 --> PUSH4A[lint]
+        PUSH3 --> PUSH4B[format_check_new]
+        PUSH3 --> PUSH4C[typecheck]
+        PUSH4A --> PUSH5[unit_test]
+        PUSH4B --> PUSH5
+        PUSH4C --> PUSH5
+        PUSH5 --> PUSH6A[yarn_audit]
+        PUSH5 --> PUSH6B[semgrep_scan]
+        PUSH5 --> PUSH6C[gitleaks_scan]
+        PUSH6A --> PUSH7[build_and_upload_frontend]
+        PUSH6B --> PUSH7
+        PUSH6C --> PUSH7
+        PUSH1 --> PUSH7
     end
 
     PR --> |PR Approved & Merged| PUSH
@@ -328,6 +349,39 @@ The pipeline generates several reports and artifacts for monitoring, debugging, 
 - **CI/CD Integration**: Use reports to block deployments on critical issues
 - **Compliance**: SARIF reports integrate with GitHub's security features
 - **Debugging**: Download artifacts to analyze failed pipeline runs
+
+### 📦 Release Assets (Main Branch Only)
+
+After a successful push to `main` branch, the pipeline creates a **GitHub Release** with build artifacts:
+
+#### 🔍 How to Find Release Assets
+
+1. **Navigate to Releases**:
+   - Go to your repository's main page
+   - Click **"Releases"** on the right sidebar (or `/releases` URL)
+   - Find the latest release tagged with your version (e.g., `v1.2.3`)
+
+2. **Download Assets**:
+   - Scroll down to **"Assets"** section in the release
+   - Look for `{PACKAGE_NAME}-{VERSION}.tar.gz` (e.g., `frontend-1.2.3.tar.gz`)
+   - Click to download the compressed build artifact
+
+#### 📋 Asset Contents
+
+The release asset contains your **static Next.js build**:
+```bash
+# Extract and view contents
+tar -xzf frontend-1.2.3.tar.gz
+ls -la
+# Contains: _next/, index.html, 404.html, and other static files
+```
+
+#### 🚀 Deployment Ready
+
+- **Static Files**: Ready for deployment to any static hosting service
+- **CDN Compatible**: Works with GitHub Pages, Netlify, Vercel, CloudFlare Pages
+- **Self-contained**: All assets and dependencies included
+- **Version Tagged**: Clear versioning for rollbacks and tracking
 
 ## 🌿 Branch Strategy
 
