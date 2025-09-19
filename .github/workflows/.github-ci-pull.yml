@@ -196,7 +196,7 @@ jobs:
       - name: Install jest-junit
         shell: bash
         run: yarn add --dev jest-junit
-      - name: Run Unit Tests with TAP and Convert to XML
+      - name: Run Unit Tests and Generate Report
         shell: bash
         run: |
           echo "Running unit/integration tests..."
