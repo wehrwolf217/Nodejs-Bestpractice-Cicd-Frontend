@@ -458,11 +458,9 @@ jobs:
           scan-folder: /tmp  # dummy scan to install gitleaks
       - name: Run Gitleaks Scan
         run: |
-          gitleaks detect --verbose --redact --commit-from ${{ github.event.pull_request.base.sha }} --commit-to ${{ github.event.pull_request.head.sha }}
+          gitleaks detect --verbose --redact --commit-from ${{ github.event.pull_request.base.sha }} --commit-to ${{ github.event.pull_request.head.sha }} --github-token ${{ secrets.GITHUB_TOKEN }}
           EXIT_CODE=$?
           echo "GITLEAKS_EXIT_CODE=$EXIT_CODE" >> $GITHUB_ENV
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Generate Gitleaks Summary
         if: always()
         run: |
