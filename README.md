@@ -350,7 +350,7 @@ The pipeline generates several reports and artifacts for monitoring, debugging, 
 |------------------------|-----------------------|----------|-------------------------------------------------------------------------|-----------|
 | `yarn-audit-report` | `yarn_audit`          | JSON     | Dependency vulnerability report from Yarn audit                         | 2 days   |
 | `semgrep-report`       | `semgrep_scan`        | SARIF     | Static Application Security Testing (SAST) results with OWASP Top 10   | 2 days   |
-| `gitleaks-report`      | `gitleaks_scan`       | JSON     | Secret detection report from GitLeaks                                   | 2 days   |
+| `gitleaks-report`      | `gitleaks_scan`       | SARIF     | Secret detection report from GitLeaks                                   | 2 days   |
 | `unit-test-report`     | `unit_test`           | XML      | Unit test results in JUnit format                                       | 2 days   |
 | `trivy-fs-report`      | `build_and_upload_frontend` | SARIF | Build artifact vulnerability scan results                               | 2 days   |
 
